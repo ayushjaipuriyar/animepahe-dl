@@ -1,29 +1,40 @@
-from http.client import HTTPConnection  # py3
-import logging
 import shutil
-import os
 import os
 from urllib.parse import urlparse
 import subprocess
-import m3u8
 from bs4 import BeautifulSoup
 import requests
 import json
 import re
-import datetime
+import math
 import threading
 from Crypto.Cipher import AES
 from pyfzf.pyfzf import FzfPrompt
 fzf = FzfPrompt()
 script_path = os.getcwd()
+max = 1
 
 
 def download_anime_list():
+    """Parse animepahe.com/anime to retrieve all the anime with their UUIDs
+    """
 
-    x = requests.get('https://animepahe.com/anime/')
-    soup = BeautifulSoup(x.content, 'lxml')
+    try:
+        response = requests.get('https://animepahe.com/anime/')
+        response.raise_for_status()
+    except requests.exceptions.RequestException as err:
+        print("OOps: Something Else", err)
+    except requests.exceptions.HTTPError as httpError:
+        print("Http Error:", httpError)
+    except requests.exceptions.ConnectionError as connectionError:
+        print("Error Connecting:", connectionError)
+    except requests.exceptions.Timeout as timeoutError:
+        print("Timeout Error:", timeoutError)
+    # Parsing the the request sent
+    soup = BeautifulSoup(response.content, 'lxml')
     divContainer = soup.find_all("div", {"class": "tab-content"})
-    f = open('readme.txt', 'w')
+    # Storing them to the file
+    f = open('animelist.txt', 'w')
     for tag in divContainer:
         for tags in tag.find_all("a"):
             f.write(tags.attrs['href'].removeprefix(
@@ -33,16 +44,24 @@ def download_anime_list():
 
 
 def search_anime_name():
-    anime_list = open("readme.txt").readlines()
+    """Search from the earlier created anime list
+        And write those name for future auto downloading
+
+    Returns:
+        list: This lst contains the anime_slug and anime_name, anime UUID and anime name respectively
+    """
+    # Search for the possible animes to download from the animelist
+    anime_list = open("animelist.txt").readlines()
     anime = fzf.prompt(anime_list)
+    # Select your desired anime to download
     anime_slug = anime[0].split(' ::::')[0]
     anime_name = anime[0].split('::::')[1]
+    # Writing to anime names to the
     myanimelist = open('myanimelist.txt', 'a')
     myanimelist.write(anime_name)
     myanimelist.write('\n')
     myanimelist.close()
     return anime_name, anime_slug
-    # print(anime_slug, anime_name)
 
 
 def anime_name_folder(anime_name):
@@ -69,22 +88,45 @@ def get_path_episode(anime_name, episode):
 
 
 def get_video_episode(anime_name, episode):
-    name = get_path(anime_name)+"/"+anime_name + \
-        "_Episode_"+str(episode)+".mp4"
+    global max
+    name = get_path(anime_name)+"/"+anime_name + " Episode " + \
+        str(episode).zfill(int(math.log10(max))+2)+".mp4"
+
     return name
 
 
 def get_episode_list(anime_name, anime_slug):
-    # get "${_API_URL}?m=release&id=${1}&sort=episode_asc&page=${2}"
-    pages = json.loads(requests.get(
-        "https://animepahe.com/api?m=release&id={}".format(anime_slug)).text)['last_page']
-    # print(pages['last_page'])
+    try:
+        response = requests.get(
+            "https://animepahe.com/api?m=release&id={}".format(anime_slug))
+        response.raise_for_status()
+    except requests.exceptions.RequestException as err:
+        print("OOps: Something Else", err)
+    except requests.exceptions.HTTPError as httpError:
+        print("Http Error:", httpError)
+    except requests.exceptions.ConnectionError as connectionError:
+        print("Error Connecting:", connectionError)
+    except requests.exceptions.Timeout as timeoutError:
+        print("Timeout Error:", timeoutError)
+
+    pages = json.loads(response.text)['last_page']
     i = 1
     episode_list = []
     while(i <= pages):
-        x = requests.get(
-            "https://animepahe.com/api?m=release&id={}&sort=episode_asc&page={}".format(anime_slug, i))
-        data = json.loads(x.text)
+        try:
+            response = requests.get(
+                "https://animepahe.com/api?m=release&id={}&sort=episode_asc&page={}".format(anime_slug, i))
+            response.raise_for_status()
+        except requests.exceptions.RequestException as err:
+            print("OOps: Something Else", err)
+        except requests.exceptions.HTTPError as httpError:
+            print("Http Error:", httpError)
+        except requests.exceptions.ConnectionError as connectionError:
+            print("Error Connecting:", connectionError)
+        except requests.exceptions.Timeout as timeoutError:
+            print("Timeout Error:", timeoutError)
+
+        data = json.loads(response.text)
         temp = data['data']
         episode_list = episode_list+temp
         i += 1
@@ -111,11 +153,22 @@ def get_playlist_link(anime_name, episode, quality="", audio=""):
         print("{} episode {} not found".format(anime_name, episode))
         exit()
     else:
-        x = requests.get(
-            "https://animepahe.com/api?m=embed&id={}&session={}&p=kwik".format(
-                anime_id, session)
-        )
-        data = json.loads(x.text)['data']
+        try:
+            response = requests.get(
+                "https://animepahe.com/api?m=embed&id={}&session={}&p=kwik".format(
+                    anime_id, session)
+            )
+            response.raise_for_status()
+        except requests.exceptions.RequestException as err:
+            print("OOps: Something Else", err)
+        except requests.exceptions.HTTPError as httpError:
+            print("Http Error:", httpError)
+        except requests.exceptions.ConnectionError as connectionError:
+            print("Error Connecting:", connectionError)
+        except requests.exceptions.Timeout as timeoutError:
+            print("Timeout Error:", timeoutError)
+
+        data = json.loads(response.text)['data']
     final_list = []
     audio_number = 0
     if(quality == ""):
@@ -134,7 +187,7 @@ def get_playlist_link(anime_name, episode, quality="", audio=""):
     if(audio == ""):
         for element in range(len(audio_list)):
             print(str(element) + " " + str(audio_list[element]['audio']))
-        audio_number = int(input("Select the preffered audio number :- "))
+        audio_number = int(input("Select the preferred audio number :- "))
     else:
         for element in range(len(audio_list)):
             if(audio_list[element]['audio'] == audio):
@@ -151,6 +204,8 @@ def select_episode_to_download(anime_name):
     for element in data:
         print("Episode {}".format(element['episode']))
     episodes = input().split(' ')
+    global max
+    max = data[-1]['episode']
     return episodes
 
 
@@ -164,29 +219,48 @@ def download_file(link, anime_name, episode, segment="", key=None):
                    "Accept-Language": "zh-CN,zh;q=0.9",
                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36"
                    }
-        x = requests.get(link, headers=headers)
+        try:
+            response = requests.get(link, headers=headers)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as err:
+            print("OOps: Something Else", err)
+        except requests.exceptions.HTTPError as httpError:
+            print("Http Error:", httpError)
+        except requests.exceptions.ConnectionError as connectionError:
+            print("Error Connecting:", connectionError)
+        except requests.exceptions.Timeout as timeoutError:
+            print("Timeout Error:", timeoutError)
+
         key = download_key(anime_name, episode)
         print("Downloading {}".format(segment))
-        ts = x.content
+        ts = response.content
         while len(ts) % 16 != 0:
             ts += b"0"
         name = get_path_episode(anime_name, episode) + segment+".ts"
         with open(name, "ab") as file:
-            # The parameter of the decrypt method needs to be a multiple of 16. If not, the binary "0" needs to be filled after it
             file.write(key.decrypt(ts))
         print(segment, "download complete")
     else:
         headers = {"Referer": "https://kwik.cx/"}
-        x = requests.get(link, headers=headers)
-        soup = BeautifulSoup(x.content, 'lxml')
+        try:
+            response = requests.get(link, headers=headers)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as err:
+            print("OOps: Something Else", err)
+        except requests.exceptions.HTTPError as httpError:
+            print("Http Error:", httpError)
+        except requests.exceptions.ConnectionError as connectionError:
+            print("Error Connecting:", connectionError)
+        except requests.exceptions.Timeout as timeoutError:
+            print("Timeout Error:", timeoutError)
+
+        soup = BeautifulSoup(response.content, 'lxml')
         scripts = soup.find_all("script")
         var = ""
         for element in scripts:
             temp = element.text.strip()
             if(temp != ""):
                 var = temp
-                # print(element.text.strip())
-        # print(var)
         result = subprocess.run(["node", "-e", var],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         source = result.stderr
@@ -201,21 +275,27 @@ def download_file(link, anime_name, episode, segment="", key=None):
 
 
 def download_key(anime_name, episode):
-    path = get_path_episode(anime_name, episode)
-    method = ''
     link = ''
     with open("{}playlist.m3u8".format(get_path_episode(anime_name, episode)), "r") as f:
         for line in f:
             if re.match('^#EXT-X-KEY:METHOD', line):
                 line = line[:-1]
-                l = line.split(',')
-                method = l[0].split('=')
-                link = l[1].split('=')
+                sep = line.split(',')
+                link = sep[1].split('=')
     headers = {"Referer": "https://kwik.cx/"}
-    # print(link[1].split('"')[1::2])
     link = link[1].split('"')[1::2]
-    # print(link[0])
-    key = requests.get(link[0], headers=headers).content
+    try:
+        response = requests.get(link[0], headers=headers)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as err:
+        print("OOps: Something Else", err)
+    except requests.exceptions.HTTPError as httpError:
+        print("Http Error:", httpError)
+    except requests.exceptions.ConnectionError as connectionError:
+        print("Error Connecting:", connectionError)
+    except requests.exceptions.Timeout as timeoutError:
+        print("Timeout Error:", timeoutError)
+    key = response.content
     sprytor = AES.new(key, AES.MODE_CBC, IV=key)
     return (sprytor)
 
@@ -223,12 +303,22 @@ def download_key(anime_name, episode):
 def download_video(anime_name, episode, res, t=0):
     if t != 0:
         headers = {"Referer": "https://kwik.cx/"}
-        x = requests.get(res, headers=headers)
+        try:
+            response = requests.get(res, headers=headers, stream=True)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as err:
+            print("OOps: Something Else", err)
+        except requests.exceptions.HTTPError as httpError:
+            print("Http Error:", httpError)
+        except requests.exceptions.ConnectionError as connectionError:
+            print("Error Connecting:", connectionError)
+        except requests.exceptions.Timeout as timeoutError:
+            print("Timeout Error:", timeoutError)
         isExist = os.path.exists(get_path_episode(anime_name, episode))
         if not isExist:
             os.makedirs(get_path_episode(anime_name, episode))
         open("{}playlist.m3u8".format(get_path_episode(
-            anime_name, episode)), "wb").write(x.content)
+            anime_name, episode)), "wb").write(response.content)
         t = get_threads_number(anime_name, episode, t)
         print("After getting the number of threads", t)
         links = []
@@ -250,17 +340,17 @@ def download_video(anime_name, episode, res, t=0):
                         urlparse(links[i+j]).path)[:-3], key))
                 download_threads.append(download_thread)
                 download_thread.start()
-            for elements in download_threads:
-                elements.join()
+            for threads in download_threads:
+                threads.join()
             i += t
-            compile(anime_name, episode)
+        compile(anime_name, episode)
 
     else:
         print(res)
         headers_str = "Referer: https://kwik.cx/"
-        donwload = subprocess.run(["ffmpeg", "-headers", headers_str, "-i", res, "-c", "copy", "-y",
+        download = subprocess.run(["ffmpeg", "-headers", headers_str, "-i", res, "-c", "copy", "-y",
                                    get_video_episode(anime_name, episode)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        print(donwload)
+        print(download)
 
 
 def get_threads_number(anime_name, episode, t):
@@ -278,10 +368,16 @@ def get_threads_number(anime_name, episode, t):
 def compile(anime_name, episode):
     path = get_path_episode(anime_name, episode)
     file = path+"file.list"
+    print("Compiling the segments into video")
     result = subprocess.run(["ffmpeg", "-f", "concat", "-safe", "0", "-i", file, "-c", "copy", "-y",
                             get_video_episode(anime_name, episode)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    shutil.rmtree(path)
-    print("{} Episode {} downloaded".format(anime_name, episode))
+    if(os.path.exists(get_video_episode(anime_name, episode))):
+        shutil.rmtree(path)
+        print("{} Episode {} downloaded".format(anime_name, episode))
+    else:
+        print("Some error occurred while compiling the video", result.stderr)
+        print("\nHence the folder is not deleted for the episode segments have not been deleted\nYou can try running [ffmpeg -f concat 0safe 0 -i file.list -c copy -y {}] in the episode folder to get your required episode {} of your anime {}".format(
+            anime_name+" "+episode+".mp4", episode, anime_name))
 
 
 def main():
@@ -290,26 +386,15 @@ def main():
     anime_name, anime_slug = search_anime_name()
     get_episode_list(anime_name, anime_slug)
     episodes = select_episode_to_download(anime_name)
-    print(episodes)
+    print("Selected Episodes are ", episodes)
+    threads = int(input("Enter number of threads to use "))
     for episode in episodes:
-        link = get_playlist_link(anime_name, int(episode))
+        link = get_playlist_link(anime_name, int(episode), "720", "jpn")
         print(link)
         video_link = download_file(link, anime_name, episode)
         print(video_link)
-        threads = int(input("Enter number of threads to use "))
         download_video(anime_name, episode, video_link, threads)
-    # anime_name = "Overlord"
-    # episode = 3
-    # link = get_playlist_link(anime_name, int(episode), "720", "jpn")
-    # print(link)
-    # video_link = download_file(link, anime_name, episode)
-    # print(video_link)
-    # threads = int(input("Enter number of threads to use "))
-    # download_video(anime_name, episode, video_link, threads)
-    # compile(anime_name, episode)
 
-
-[]
 
 if __name__ == "__main__":
     main()
