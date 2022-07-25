@@ -1,3 +1,5 @@
+from tqdm import tqdm
+import sys
 import shutil
 import os
 from urllib.parse import urlparse
@@ -8,6 +10,7 @@ import json
 import re
 import math
 import threading
+import argparse
 from tqdm.auto import tqdm
 from Crypto.Cipher import AES
 from pyfzf.pyfzf import FzfPrompt
@@ -17,6 +20,68 @@ fzf = FzfPrompt()
 max = 1
 script_path = os.getcwd()
 s = requests.session()
+
+
+def create_test_bash_script():
+    """
+    Create a bash script that generates numbers 1 to 1000000
+    This is just for illustration purpose to simulate a long running bash command
+    """
+    with open('hello', 'w') as bash_file:
+        bash_file.write('''\
+    #!/bin/bash
+    # Tested using bash version 4.1.5
+    for ((i=1;i<=1000000;i++));
+    do
+        # your-unix-command-here
+        echo $i
+    done
+    ''')
+
+
+"""
+# def run_task(cmd):
+
+#     try:
+#         # create a default tqdm progress bar object, unit='B' definnes a String that will be used to define the unit of each iteration in our case bytes
+#         with tqdm(unit='B', unit_scale=True, miniters=1, desc="run_task={}".format(cmd)) as t:
+#             # subprocess.PIPE gets the output of the child process
+#             process = subprocess.Popen(cmd, shell=True, bufsize=1, universal_newlines=True, stdout=subprocess.PIPE,
+#                                        stderr=subprocess.PIPE)
+
+#             # print subprocess output line-by-line as soon as its stdout buffer is flushed in Python 3:
+#             for line in process.stdout:
+#                 # Update the progress, since we do not have a predefined iterator
+#                 # tqdm doesnt know before hand when to end and cant generate a progress bar
+#                 # hence elapsed time will be shown, this is good enough as we know
+#                 # something is in progress
+#                 t.update()
+#                 # forces stdout to "flush" the buffer
+#                 sys.stdout.flush()
+
+#             # We explicitly close stdout
+#             process.stdout.close()
+
+#             # wait for the return code
+#             return_code = process.wait()
+
+#             # if return code is not 0 this means our script errored out
+#             if return_code != 0:
+#                 raise subprocess.CalledProcessError(return_code, cmd)
+
+#     except subprocess.CalledProcessError as e:
+#         sys.stderr.write(
+#             "common::run_command() : [ERROR]: output = {}, error code = {}\n".format(e.output, e.returncode))
+
+
+# create_test_bash_script()
+
+# # run your terminal command using below
+# run_task('chmod 755 hello && ./hello')
+
+# run_task('xx*3238')  # this will fail not a valid command﻿﻿
+"""
+
 
 retry_strategy = Retry(
     total=3,
@@ -40,7 +105,7 @@ def get_path(anime_name):
     """Returns the required path by an anime
 
     Args:
-        anime_name (string): Name of the anime
+        anime_name (str): Name of the anime
 
     Returns:
         string: Path where the anime will be stored
@@ -54,7 +119,7 @@ def anime_name_folder(anime_name):
         Should work for windows and unix devices
 
     Args:
-        anime_name (string): Name of the anime
+        anime_name (str): Name of the anime
 
     Returns:
         string: The name of the folder after replacing invalid characters with _
@@ -75,7 +140,7 @@ def get_path_episode_folder(anime_name, episode):
     """Returns the required path for further processing when multithreading
        Folder to save the segments into
     Args:
-        anime_name (string): Name of the anime
+        anime_name (str): Name of the anime
         episode (Integer): Episode to be downloaded
 
     Returns:
@@ -89,7 +154,7 @@ def get_video_episode(anime_name, episode):
     """Returns the name of the video to be downloaded with path
 
     Args:
-        anime_name (string): Name of the anime
+        anime_name (str): Name of the anime
         episode (Integer): Episode to be downloaded
 
     Returns:
@@ -178,9 +243,10 @@ def get_source_file(anime_name, anime_slug):
     """Retrieve the episode list
 
     Args:
-        anime_name (_type_): _description_
-        anime_slug (_type_): _description_
+        anime_name (str): Name of the anime 
+        anime_slug (str): UUID of the anime
     """
+    print("Getting list of episodes")
     try:
         response = requests.get(
             "https://animepahe.com/api?m=release&id={}".format(anime_slug))
@@ -230,7 +296,7 @@ def select_episode_to_download(anime_name):
     """Select episodes to download
 
     Args:
-        anime_name (_type_): _description_
+        anime_name (str): Name of the anime 
 
     Returns:
         list: List of all the episodes to download
@@ -240,7 +306,7 @@ def select_episode_to_download(anime_name):
     with open("{}/.source.json".format(path), 'r') as f:
         data = json.load(f)['data']
     for element in data:
-        print("[] Episode {}".format(element['episode']))
+        print("Episode {}".format(element['episode']))
     episodes = input(
         "Enter the number of episodes to download, separated by space\n").split(' ')
     global max
@@ -252,8 +318,8 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
     """Return the link to the site containing the m3u8 file to the specific episode
        Deals with the resolution and audio of the episode
     Args:
-        anime_name (_type_): _description_
-        episode (_type_): _description_
+        anime_name (str): Name of the anime 
+        episode (int): Episode to be used
         quality (str, optional): Quality of the episode Defaults to "".
         audio (str, optional): Possible audio languages Defaults to "".
 
@@ -403,8 +469,8 @@ def download_key(anime_name, episode):
     """Download the key and return it
 
     Args:
-        anime_name (_type_): _description_
-        episode (_type_): _description_
+        anime_name (str): Name of the anime 
+        episode (int): Episode to be downloaded
 
     Returns:
         crypto.cipher: THe key to decrypt the smaller segments
@@ -454,8 +520,8 @@ def download_video(anime_name, episode, res, t=0):
     """Download loads the video when multithreading is disabled otherwise use multithreading to download smaller segments
 
     Args:
-        anime_name (_type_): _description_
-        episode (_type_): _description_
+        anime_name (str): Name of the anime 
+        episode (int): Episode to be downloaded
         res (str): link of the m3u8 file
         t (int, optional): Number of threads Defaults to 0.
     """
@@ -528,8 +594,8 @@ def compile(anime_name, episode):
     """Compiles the smaller segments of the m3u8 file to a video
 
     Args:
-        anime_name (_type_): _description_
-        episode (_type_): _description_
+        anime_name (str): Name of the anime 
+        episode (int): Episode to be downloaded
     """
     path = get_path_episode_folder(anime_name, episode)
     file = path+"file.list"
@@ -539,7 +605,7 @@ def compile(anime_name, episode):
                             get_video_episode(anime_name, episode)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if(os.path.exists(get_video_episode(anime_name, episode))):
         # print(result.stdout, result.stderr)
-        shutil.rmtree(path)
+        # shutil.rmtree(path)
         print("{} Episode {} downloaded".format(anime_name, episode))
     else:
         print("Some error occurred while compiling the video", result.stderr)
@@ -552,10 +618,10 @@ def download_segments(link, anime_name, episode, key, retry=0):
 
     Args:
         link (string): Link to the segment
-        anime_name (_type_): _description_
-        episode (_type_): _description_
-        key (_type_): _description_
-        segment (_type_): _description_
+        anime_name (str): Name of the anime 
+        episode (int): Episode to be downloaded
+        key (crypto class): 16 bit key for decryption
+        segment (str): Name of the segment to be downloaded as a subprocess
     """
     segment = os.path.basename(urlparse(link).path)[:-3]
     # print("Download started for {}".format(segment))
@@ -579,14 +645,20 @@ def download_segments(link, anime_name, episode, key, retry=0):
     while len(ts) % 16 != 0:
         ts += b"0"
     name = get_path_episode_folder(anime_name, episode)+segment+".ts"
-    progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
+    progress_bar = tqdm(desc="{}".format(
+        segment), total=total_size_in_bytes, unit='iB', unit_scale=True)
+    # print(len(ts))
+    for data in range(len(ts), 1024):
+        print(len(data), type(data))
     with open(name, "ab") as file:
-        for data in response.iter_content(block_size):
-            progress_bar.update(len(data))
-            file.write(key.decrypt(ts))
+        file.write(key.decrypt(ts))
+    for data in response.iter_content(block_size):
+        progress_bar.update(len(data))
+        # file.write(key.decrypt(ts))
+    progress_bar.clear()
     progress_bar.close()
-    if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
-        print("ERROR, something went wrong")
+    # if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
+    # print("ERROR, something went wrong")
     # if os.path.exists(name):
     # print(segment, "download completed")
     if not os.path.exists(name):
@@ -613,7 +685,6 @@ def updates():
 
     data = response.json()['data']
     anime_list = open("myanimelist.txt").readlines()
-    print(json.dumps(data[0], indent=4))
     count = 0
     for episode in data:
         if episode['anime_title'] in anime_list:
@@ -626,29 +697,53 @@ def updates():
                     episode), "720", "jpn", anime_id, session)
                 video_link = get_playlist_link(link)
                 download_video(anime_name, episode, video_link, 50)
-            count += 1
+                count += 1
     if count == 0:
         print("No new episode found")
 
 
-def main():
-    # download_anime_list()
-    # anime_name, anime_slug = search_anime_name()
-    # get_source_file(anime_name, anime_slug)
-    # episodes = select_episode_to_download(anime_name)
-    # print("Selected Episodes are ", episodes)
-    # threads = int(input("Enter number of threads to use "))
-    # for episode in episodes:
-    #     link = get_site_link(anime_name, int(episode), "720", "jpn")
-    #     print(link)
-    #     print("\nGot the link for the episode {} of {}\n".format(episode, anime_name))
-    #     video_link = get_playlist_link(link)
-    #     print("Got the link to download ", video_link)
-    #     download_video(anime_name, episode, video_link, threads)
-    # updates()
-    search_anime_name("one Piece")
+def main(args):
+    if(args.updates):
+        updates()
+    else:
+        download_anime_list()
+        anime_name, anime_slug = search_anime_name(args.name)
+        if args.episodes[0] == 0:
+            get_source_file(anime_name, anime_slug)
+            episodes = select_episode_to_download(anime_name)
+        else:
+            episodes = args.episodes
+        print("Selected Episodes are ", episodes)
+        if args.threads == 0:
+            threads = int(input("Enter number of threads to use "))
+        else:
+            threads = args.threads
+        for episode in episodes:
+            link = get_site_link(anime_name, int(episode),
+                                 args.quality, args.audio)
+            print("\nGot the link for the episode {} of {}\n".format(
+                episode, anime_name))
+            video_link = get_playlist_link(link)
+            print("Got the link to download",)
+            download_video(anime_name, episode, video_link, threads)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Downloader for animepahe [UNOFFICIAL]\nSpeed shown is faulty")
+    parser.add_argument('-n', '--name', type=str, default="",
+                        help='Name of the anime')
+    parser.add_argument('-e', '--episodes', type=int, nargs='*', default=[0],
+                        help="List of episodes separated by spaces")
+    parser.add_argument('-q', '--quality', type=str,
+                        default="720", help='Quality of videos')
+    parser.add_argument('-a', '--audio', type=str, default='jpn',
+                        help='Language of the audio eng|jpn')
+    parser.add_argument('-t', '--threads', type=int, default=0,
+                        help='Number of threads to use to download')
+    parser.add_argument('-u', '--updates', action='store_true',
+                        help='Updater')
+
+    args = parser.parse_args()
+    main(args)
 
