@@ -43,7 +43,7 @@ def create_test_bash_script():
 # def run_task(cmd):
 
 #     try:
-#         # create a default tqdm progress bar object, unit='B' definnes a String that will be used to define the unit of each iteration in our case bytes
+#         # create a default tqdm progress bar object, unit='B' defines a String that will be used to define the unit of each iteration in our case bytes
 #         with tqdm(unit='B', unit_scale=True, miniters=1, desc="run_task={}".format(cmd)) as t:
 #             # subprocess.PIPE gets the output of the child process
 #             process = subprocess.Popen(cmd, shell=True, bufsize=1, universal_newlines=True, stdout=subprocess.PIPE,
@@ -52,7 +52,7 @@ def create_test_bash_script():
 #             # print subprocess output line-by-line as soon as its stdout buffer is flushed in Python 3:
 #             for line in process.stdout:
 #                 # Update the progress, since we do not have a predefined iterator
-#                 # tqdm doesnt know before hand when to end and cant generate a progress bar
+#                 # tqdm doesn't know before hand when to end and cant generate a progress bar
 #                 # hence elapsed time will be shown, this is good enough as we know
 #                 # something is in progress
 #                 t.update()
@@ -65,7 +65,7 @@ def create_test_bash_script():
 #             # wait for the return code
 #             return_code = process.wait()
 
-#             # if return code is not 0 this means our script errored out
+#             # if return code is not 0 this means our script returns errors out
 #             if return_code != 0:
 #                 raise subprocess.CalledProcessError(return_code, cmd)
 
@@ -247,8 +247,9 @@ def get_source_file(anime_name, anime_slug):
         anime_slug (str): UUID of the anime
     """
     print("Getting list of episodes")
+    x = requests.session()
     try:
-        response = requests.get(
+        response = x.get(
             "https://animepahe.com/api?m=release&id={}".format(anime_slug))
         response.raise_for_status()
     except requests.exceptions.RequestException as err:
@@ -266,7 +267,7 @@ def get_source_file(anime_name, anime_slug):
     # Running for all the pages possible to have the links for the episodes
     while(i <= pages):
         try:
-            response = requests.get(
+            response = x.get(
                 "https://animepahe.com/api?m=release&id={}&sort=episode_asc&page={}".format(anime_slug, i))
             response.raise_for_status()
         except requests.exceptions.RequestException as err:
@@ -605,7 +606,7 @@ def compile(anime_name, episode):
                             get_video_episode(anime_name, episode)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if(os.path.exists(get_video_episode(anime_name, episode))):
         # print(result.stdout, result.stderr)
-        # shutil.rmtree(path)
+        shutil.rmtree(path)
         print("{} Episode {} downloaded".format(anime_name, episode))
     else:
         print("Some error occurred while compiling the video", result.stderr)
@@ -746,4 +747,3 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     main(args)
-
