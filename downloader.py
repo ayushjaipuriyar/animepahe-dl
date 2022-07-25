@@ -8,11 +8,13 @@ import json
 import re
 import math
 import threading
+from tqdm.auto import tqdm
 from Crypto.Cipher import AES
 from pyfzf.pyfzf import FzfPrompt
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 fzf = FzfPrompt()
+max = 1
 script_path = os.getcwd()
 s = requests.session()
 
@@ -128,27 +130,51 @@ def download_anime_list():
     f.close()
 
 
-def search_anime_name():
+def search_anime_name(temp=""):
     """Search from the earlier created anime list
         And write those name for future auto downloading
 
     Returns:
         list: This lst contains the anime_slug and anime_name, anime UUID and anime name respectively
     """
-    anime_list = open("animelist.txt").readlines()
-    anime = fzf.prompt(anime_list)
-    # Select your desired anime to download
-    anime_slug = anime[0].split(' ::::')[0]
-    anime_name = anime[0].split('::::')[1]
-    # Writing to anime names to the
-    myanimelist = open('myanimelist.txt', 'a')
-    myanimelist.write(anime_name)
-    myanimelist.write('\n')
-    myanimelist.close()
+    if temp != "":
+        temp = temp.replace(' ', '%20')
+        res = 'https://animepahe.com/api?m=search&q={}'.format(temp)
+        try:
+            response = requests.get(res)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as err:
+            print("OOps: Something Else", err)
+        except requests.exceptions.HTTPError as httpError:
+            print("Http Error:", httpError)
+        except requests.exceptions.ConnectionError as connectionError:
+            print("Error Connecting:", connectionError)
+        except requests.exceptions.Timeout as timeoutError:
+            print("Timeout Error:", timeoutError)
+        data = response.json()['data']
+        anime_list = []
+        for element in data:
+            anime_list.append(element['session'] +
+                              "::::"+element['title']+"::::")
+        # print(json.dumps(data, indent=4))
+        result = fzf.prompt(anime_list)[0]
+        anime_name = result.split('::::')[1]
+        anime_slug = result.split('::::')[0]
+    else:
+        anime_list = open("animelist.txt").readlines()
+        anime = fzf.prompt(anime_list)
+        # Select your desired anime to download
+        anime_slug = anime[0].split(' ::::')[0]
+        anime_name = anime[0].split('::::')[1]
+        # Writing to anime names to the
+        myanimelist = open('myanimelist.txt', 'a')
+        myanimelist.write('\n')
+        myanimelist.write(anime_name)
+        myanimelist.close()
     return anime_name, anime_slug
 
 
-def het_source_file(anime_name, anime_slug):
+def get_source_file(anime_name, anime_slug):
     """Retrieve the episode list
 
     Args:
@@ -222,7 +248,7 @@ def select_episode_to_download(anime_name):
     return episodes
 
 
-def get_site_link(anime_name, episode, quality="", audio=""):
+def get_site_link(anime_name, episode, quality="", audio="", anime_id="", session=""):
     """Return the link to the site containing the m3u8 file to the specific episode
        Deals with the resolution and audio of the episode
     Args:
@@ -234,15 +260,14 @@ def get_site_link(anime_name, episode, quality="", audio=""):
     Returns:
         string: Link to the site containing the m3u8 file
     """
-    path = get_path(anime_name)
-    with open("{}/.source.json".format(path), 'r') as source_file:
-        data = json.load(source_file)['data']
-    anime_id = ""
-    session = ""
-    for element in data:
-        if element['episode'] == episode:
-            anime_id = element['anime_id']
-            session = element['session']
+    if(anime_id == "" and session == ""):
+        path = get_path(anime_name)
+        with open("{}/.source.json".format(path), 'r') as source_file:
+            data = json.load(source_file)['data']
+        for element in data:
+            if element['episode'] == episode:
+                anime_id = element['anime_id']
+                session = element['session']
     if(anime_id == "" and session == ""):
         print("{} episode {} not found".format(anime_name, episode))
         exit()
@@ -328,24 +353,50 @@ def get_playlist_link(link):
     # Parse the site and find the script tags
     soup = BeautifulSoup(response.content, 'lxml')
     scripts = soup.find_all("script")
-    var = ""
+
+    # Not so great code , trying to get the link of the m3u8 file without node
+
+    sc = []
     for element in scripts:
-        temp = element.text.strip()
-        if(temp != ""):
-            var = temp
-    # Evaluate the javascript code
-    result = subprocess.run(["node", "-e", var],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    # Gets the link to the m3u8 file in the stderr
-    source = result.stderr
-    sub1 = "const source='"
-    sub2 = "';const video="
-    id1 = source.index(sub1)
-    id2 = source.index(sub2)
-    res = ''
-    for idx in range(id1 + len(sub1), id2):
-        res = res + source[idx]
-    return res
+        x = element.text.strip()
+        if re.match("^eval", x):
+            sc = x.split('|')
+    # print(sc[-12:-1])
+    actual_link = sc[-12:-1]
+    actual_link.reverse()
+    actual_link[0] = "https://"
+    actual_link[1] = actual_link[1]+"-"
+    actual_link[2] = actual_link[2]+"."
+    actual_link[3] = actual_link[3]+"."
+    actual_link[4] = actual_link[4]+"."
+    actual_link[5] = actual_link[5]+"/"
+    actual_link[6] = actual_link[6]+"/"
+    actual_link[7] = actual_link[7]+"/"
+    actual_link[8] = actual_link[8]+"/"
+    actual_link[9] = actual_link[9]+"."
+    m3u8_link = ''.join(actual_link)
+    return m3u8_link
+
+    # Code for getting the m3u8 link with node
+
+    # var = ""
+    # for element in scripts:
+    #     temp = element.text.strip()
+    #     if(temp != ""):
+    #         var = temp
+    # # Evaluate the javascript code
+    # result = subprocess.run(["node", "-e", var],
+    #                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    # # Gets the link to the m3u8 file in the stderr
+    # source = result.stderr
+    # sub1 = "const source='"
+    # sub2 = "';const video="
+    # id1 = source.index(sub1)
+    # id2 = source.index(sub2)
+    # res = ''
+    # for idx in range(id1 + len(sub1), id2):
+    #     res = res + source[idx]
+    # return res
 
 
 def download_key(anime_name, episode):
@@ -439,17 +490,18 @@ def download_video(anime_name, episode, res, t=0):
                     links.append(line[:-1])
 
         # Saving the links in order present in the m3u8 file for later on merging the files
-        print("Creating the default file list")
+        print("Creating the file")
         with open(r'{}file.list'.format(get_path_episode_folder(anime_name, episode)), 'w') as fp:
             fp.write("\n".join(str(
                 "file "+"'"+os.path.basename(urlparse(item).path)+"'") for item in links))
         # Getting the key for decryption
         key = download_key(anime_name, episode)
         i = 0
+        pbar = tqdm(desc='Downloading segments', total=len(links))
         while i < len(links):
             download_threads = []
             p = t if (len(links)-i) > t else (len(links)-i)
-            print("Getting {} threads".format(p))
+            # print("Getting {} threads".format(p))
             for j in range(p):
                 download_thread = threading.Thread(
                     target=download_segments, args=(links[i+j], anime_name, episode, key))
@@ -457,7 +509,9 @@ def download_video(anime_name, episode, res, t=0):
                 download_thread.start()
             for threads in download_threads:
                 threads.join()
-            i += t
+            i += p
+            pbar.update(i)
+        pbar.close()
         compile(anime_name, episode)
 
     else:
@@ -484,6 +538,7 @@ def compile(anime_name, episode):
     result = subprocess.run(["ffmpeg", "-f", "concat", "-safe", "0", "-i", file, "-c", "copy", "-y",
                             get_video_episode(anime_name, episode)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if(os.path.exists(get_video_episode(anime_name, episode))):
+        # print(result.stdout, result.stderr)
         shutil.rmtree(path)
         print("{} Episode {} downloaded".format(anime_name, episode))
     else:
@@ -503,7 +558,7 @@ def download_segments(link, anime_name, episode, key, retry=0):
         segment (_type_): _description_
     """
     segment = os.path.basename(urlparse(link).path)[:-3]
-    print("Download started for {}".format(segment))
+    # print("Download started for {}".format(segment))
     global headers
     try:
         response = s.get(link, headers=headers)
@@ -518,16 +573,23 @@ def download_segments(link, anime_name, episode, key, retry=0):
         print("Error Connecting:", connectionError)
     except requests.exceptions.Timeout as timeoutError:
         print("Timeout Error:", timeoutError)
-
     ts = response.content
+    total_size_in_bytes = int(response.headers.get('content-length', 0))
+    block_size = 1024
     while len(ts) % 16 != 0:
         ts += b"0"
     name = get_path_episode_folder(anime_name, episode)+segment+".ts"
+    progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
     with open(name, "ab") as file:
-        file.write(key.decrypt(ts))
-    if os.path.exists(name):
-        print(segment, "download completed")
-    else:
+        for data in response.iter_content(block_size):
+            progress_bar.update(len(data))
+            file.write(key.decrypt(ts))
+    progress_bar.close()
+    if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
+        print("ERROR, something went wrong")
+    # if os.path.exists(name):
+    # print(segment, "download completed")
+    if not os.path.exists(name):
         if retry < 3:
             download_segments(link, anime_name, episode, key, retry+1)
         else:
@@ -535,24 +597,10 @@ def download_segments(link, anime_name, episode, key, retry=0):
             exit()
 
 
-def main():
-    # download_anime_list()
-    # anime_name, anime_slug = search_anime_name()
-    # het_source_file(anime_name, anime_slug)
-    # episodes = select_episode_to_download(anime_name)
-    # print("Selected Episodes are ", episodes)
-    # threads = int(input("Enter number of threads to use "))
-    # for episode in episodes:
-    #     link = get_site_link(anime_name, int(episode), "720", "jpn")
-    #     print(link)
-    #     print("\nGot the link for the episode {} of {}\n".format(episode, anime_name))
-    #     video_link = get_playlist_link(link)
-    #     print("Got the link to download")
-    #     download_video(anime_name, episode, video_link, threads)
-    link = 'https://kwik.cx/e/hpvW2Er7uku5'
-    global headers
+def updates():
+    res = "https://animepahe.com/api?m=airing&page1"
     try:
-        response = s.get(link, headers=headers)
+        response = requests.get(res)
         response.raise_for_status()
     except requests.exceptions.RequestException as err:
         print("OOps: Something Else", err)
@@ -562,10 +610,43 @@ def main():
         print("Error Connecting:", connectionError)
     except requests.exceptions.Timeout as timeoutError:
         print("Timeout Error:", timeoutError)
-    # Parse the site and find the script tags
-    soup = BeautifulSoup(response.content, 'lxml')
-    # scripts = soup.find_all("script")
-    print(soup)
+
+    data = response.json()['data']
+    anime_list = open("myanimelist.txt").readlines()
+    print(json.dumps(data[0], indent=4))
+    count = 0
+    for episode in data:
+        if episode['anime_title'] in anime_list:
+            anime_id = episode['anime_id']
+            session = episode['session']
+            anime_name = episode['anime_title']
+            episode = episode['episode']
+            if not (os.path.exists(get_video_episode(anime_name, episode))):
+                link = get_site_link(anime_name, int(
+                    episode), "720", "jpn", anime_id, session)
+                video_link = get_playlist_link(link)
+                download_video(anime_name, episode, video_link, 50)
+            count += 1
+    if count == 0:
+        print("No new episode found")
+
+
+def main():
+    # download_anime_list()
+    # anime_name, anime_slug = search_anime_name()
+    # get_source_file(anime_name, anime_slug)
+    # episodes = select_episode_to_download(anime_name)
+    # print("Selected Episodes are ", episodes)
+    # threads = int(input("Enter number of threads to use "))
+    # for episode in episodes:
+    #     link = get_site_link(anime_name, int(episode), "720", "jpn")
+    #     print(link)
+    #     print("\nGot the link for the episode {} of {}\n".format(episode, anime_name))
+    #     video_link = get_playlist_link(link)
+    #     print("Got the link to download ", video_link)
+    #     download_video(anime_name, episode, video_link, threads)
+    # updates()
+    search_anime_name("one Piece")
 
 
 if __name__ == "__main__":
