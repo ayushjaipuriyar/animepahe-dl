@@ -64,3 +64,4 @@ options:
 - [ ] Maybe making a proper package :thinking:
 - [ ] Option for adding anime for future checking ?
 - [ ] Fix download indicator
+- [ ] New issue with ffmpeg trouble with audio , aac codec issue
