@@ -252,7 +252,7 @@ def get_source_file(anime_name, anime_slug):
     """Retrieve the episode list
 
     Args:
-        anime_name (str): Name of the anime 
+        anime_name (str): Name of the anime
         anime_slug (str): UUID of the anime
     """
     print("Getting list of episodes")
@@ -306,7 +306,7 @@ def select_episode_to_download(anime_name):
     """Select episodes to download
 
     Args:
-        anime_name (str): Name of the anime 
+        anime_name (str): Name of the anime
 
     Returns:
         list: List of all the episodes to download
@@ -328,7 +328,7 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
     """Return the link to the site containing the m3u8 file to the specific episode
        Deals with the resolution and audio of the episode
     Args:
-        anime_name (str): Name of the anime 
+        anime_name (str): Name of the anime
         episode (int): Episode to be used
         quality (str, optional): Quality of the episode Defaults to "".
         audio (str, optional): Possible audio languages Defaults to "".
@@ -479,7 +479,7 @@ def download_key(anime_name, episode):
     """Download the key and return it
 
     Args:
-        anime_name (str): Name of the anime 
+        anime_name (str): Name of the anime
         episode (int): Episode to be downloaded
 
     Returns:
@@ -509,7 +509,7 @@ def download_key(anime_name, episode):
 
     key = response.content
     # Getting the actual key
-    sprytor = AES.new(key, AES.MODE_CBC, IV=key)
+    sprytor = AES.new(key, AES.MODE_CBC, IV=key[:AES.block_size])
     return sprytor
 
 
@@ -530,7 +530,7 @@ def download_video(anime_name, episode, res, t=0):
     """Download loads the video when multithreading is disabled otherwise use multithreading to download smaller segments
 
     Args:
-        anime_name (str): Name of the anime 
+        anime_name (str): Name of the anime
         episode (int): Episode to be downloaded
         res (str): link of the m3u8 file
         t (int, optional): Number of threads Defaults to 0.
@@ -586,7 +586,7 @@ def download_video(anime_name, episode, res, t=0):
             for threads in download_threads:
                 threads.join()
             i += p
-            pbar.update(i)
+            pbar.update(p)
         pbar.close()
         compile(anime_name, episode)
 
@@ -604,7 +604,7 @@ def compile(anime_name, episode):
     """Compiles the smaller segments of the m3u8 file to a video
 
     Args:
-        anime_name (str): Name of the anime 
+        anime_name (str): Name of the anime
         episode (int): Episode to be downloaded
     """
     path = get_path_episode_folder(anime_name, episode)
@@ -628,7 +628,7 @@ def download_segments(link, anime_name, episode, key, retry=0):
 
     Args:
         link (string): Link to the segment
-        anime_name (str): Name of the anime 
+        anime_name (str): Name of the anime
         episode (int): Episode to be downloaded
         key (crypto class): 16 bit key for decryption
         segment (str): Name of the segment to be downloaded as a subprocess
