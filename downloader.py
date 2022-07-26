@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from tqdm import tqdm
 import sys
 import shutil
@@ -402,7 +404,7 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
                     input("Select the preferred audio number :- "))
     # Getting the desired format of the video
     final_list.append(audio_list[audio_number])
-    # Returning the link  to the site holding the m3u8 file
+    # Returning the link  to the site holding the mw3u8 file
     return final_list[0]['kwik']
 
 
