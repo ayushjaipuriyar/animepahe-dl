@@ -1,7 +1,5 @@
 # animepahe-dl
 
----
-
 Python program to download anime from [AnimePahe](https://animepah.com)
 
 ## Table of contents
@@ -61,3 +59,8 @@ options:
 
 - [x] ~~Trying to get rid of Node.js as a dependency~~
 - [x] ~~Fixing multiple entries of same anime in the myanimelist for checking for updates~~
+- [ ] Fixing codes
+- [ ] Option to select node or dumb method
+- [ ] Maybe making a proper package :thinking:
+- [ ] Option for adding anime for future checking ?
+- [ ] Fix download indicator
