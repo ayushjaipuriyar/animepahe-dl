@@ -2,11 +2,16 @@
 
 ---
 
-# Still Under Development
-
----
-
 Python program to download anime from [AnimePahe](https://animepah.com)
+
+## Table of contents
+
+- [animepahe-dl](#animepahe-dl)
+  - [Table of contents](#table-of-contents)
+  - [Requirements](#requirements)
+    - [How to Use](#how-to-use)
+  - [Examples](#examples)
+  - [Todos](#todos)
 
 ## Requirements
 
@@ -21,7 +26,7 @@ fzf
 
 ```
 
-## How to Use
+### How to Use
 
 ---
 
@@ -52,5 +57,7 @@ options:
 
 ## Todos
 
-- [x] Trying to get rid of Node.js as a dependency
-- [x] Trying to get rid of Node.js as a dependency
+---
+
+- [x] ~~Trying to get rid of Node.js as a dependency~~
+- [x] ~~Fixing multiple entries of same anime in the myanimelist for checking for updates~~

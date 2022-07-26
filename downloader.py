@@ -231,11 +231,18 @@ def search_anime_name(temp=""):
         # Select your desired anime to download
         anime_slug = anime[0].split(' ::::')[0]
         anime_name = anime[0].split('::::')[1]
-        # Writing to anime names to the
-        myanimelist = open('myanimelist.txt', 'a')
-        myanimelist.write('\n')
-        myanimelist.write(anime_name)
-        myanimelist.close()
+    # Writing to anime names to the
+    flag = 0
+    print("Checking if {} already added".format(anime_name))
+    with open('myanimelist.txt', 'r+') as myanimelist:
+        Lines = myanimelist.readlines()
+        for line in Lines:
+            # print(line.strip())
+            if line.strip() == anime_name:
+                flag += 1
+        if flag == 0:
+            myanimelist.write(anime_name)
+            myanimelist.write('\n')
     return anime_name, anime_slug
 
 
@@ -699,6 +706,7 @@ def updates():
                 video_link = get_playlist_link(link)
                 download_video(anime_name, episode, video_link, 50)
                 count += 1
+                print("New episode for {} downloaded".format(anime_name))
     if count == 0:
         print("No new episode found")
 
