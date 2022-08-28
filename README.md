@@ -63,7 +63,8 @@ options:
 - [ ] Option to select node or dumb method
 - [ ] Maybe making a proper package :thinking:
 - [ ] Option for adding anime for future checking ?
-- [ ] Fix download indicator segments
+- [x] Fix download indicator segments
 - [x] ~~Fix download indicator main indicator~~
 - [x] ~~New issue with ffmpeg trouble with audio , aac codec issue~~
 - [ ] Change the default download location ? :thinking: or as an option ?
+- [x] Resuming Capability
