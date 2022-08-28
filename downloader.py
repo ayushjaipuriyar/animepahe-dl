@@ -21,24 +21,8 @@ from requests.packages.urllib3.util.retry import Retry
 fzf = FzfPrompt()
 max = 1
 script_path = os.getcwd()
+script_path = '/home/ayush/Videos/Anime'
 s = requests.session()
-
-
-def create_test_bash_script():
-    """
-    Create a bash script that generates numbers 1 to 1000000
-    This is just for illustration purpose to simulate a long running bash command
-    """
-    with open('hello', 'w') as bash_file:
-        bash_file.write('''\
-    #!/bin/bash
-    # Tested using bash version 4.1.5
-    for ((i=1;i<=1000000;i++));
-    do
-        # your-unix-command-here
-        echo $i
-    done
-    ''')
 
 
 """
@@ -172,7 +156,8 @@ def get_video_episode(anime_name, episode):
 def download_anime_list():
     """Parse animepahe.com/anime to retrieve all the anime with their UUIDs
     """
-
+    res = 'https://animepahe.com/anime'
+    # response = req(res)
     try:
         response = requests.get('https://animepahe.com/anime/')
         response.raise_for_status()
@@ -236,7 +221,7 @@ def search_anime_name(temp=""):
     # Writing to anime names to the
     flag = 0
     print("Checking if {} already added".format(anime_name))
-    with open('myanimelist.txt', 'r+') as myanimelist:
+    with open('{}/myanimelist.txt'.format(script_path), 'r+') as myanimelist:
         Lines = myanimelist.readlines()
         for line in Lines:
             # print(line.strip())
@@ -415,6 +400,7 @@ def get_playlist_link(link):
         string: Link to the m3u8 file
     """
     global headers
+    # response = sreq(link)
     try:
         response = s.get(link, headers=headers)
         response.raise_for_status()
@@ -495,6 +481,7 @@ def download_key(anime_name, episode):
                 link = sep[1].split('=')
     link = link[1].split('"')[1::2]
     global headers
+    # response = req(link[0])
     try:
         response = requests.get(link[0], headers=headers)
         response.raise_for_status()
@@ -509,7 +496,7 @@ def download_key(anime_name, episode):
 
     key = response.content
     # Getting the actual key
-    sprytor = AES.new(key, AES.MODE_CBC, IV=key[:AES.block_size])
+    sprytor = AES.new(key, AES.MODE_CBC, IV=None)
     return sprytor
 
 
@@ -538,7 +525,8 @@ def download_video(anime_name, episode, res, t=0):
     if t != 0:
         # Download the m3u8 file for further processing
         global headers
-        print("Trying to download the m3u8 file")
+        # print("Trying to download the m3u8 file")
+        # response = req(res)
         try:
             response = requests.get(res, headers=headers, stream=True)
             response.raise_for_status()
@@ -554,6 +542,21 @@ def download_video(anime_name, episode, res, t=0):
         if not os.path.exists(get_path_episode_folder(anime_name, episode)):
             os.makedirs(get_path_episode_folder(anime_name, episode))
         # Saving the m3u8 file
+        if(os.path.exists("{}playlist.m3u8".format(get_path_episode_folder(anime_name, episode)))):
+            print("m3u8 file already present")
+        else:
+            print("Trying to download the m3u8 file")
+            try:
+                response = requests.get(res, headers=headers, stream=True)
+                response.raise_for_status()
+            except requests.exceptions.RequestException as err:
+                print("OOps: Something Else", err)
+            except requests.exceptions.HTTPError as httpError:
+                print("Http Error:", httpError)
+            except requests.exceptions.ConnectionError as connectionError:
+                print("Error Connecting:", connectionError)
+            except requests.exceptions.Timeout as timeoutError:
+                print("Timeout Error:", timeoutError)
         open("{}playlist.m3u8".format(get_path_episode_folder(
             anime_name, episode)), "wb").write(response.content)
         # Getting possible threads
@@ -566,12 +569,16 @@ def download_video(anime_name, episode, res, t=0):
                     links.append(line[:-1])
 
         # Saving the links in order present in the m3u8 file for later on merging the files
-        print("Creating the file")
-        with open(r'{}file.list'.format(get_path_episode_folder(anime_name, episode)), 'w') as fp:
-            fp.write("\n".join(str(
-                "file "+"'"+os.path.basename(urlparse(item).path)+"'") for item in links))
+        if(os.path.exists("{}file.list".format(get_path_episode_folder(anime_name, episode)))):
+            print("File list already present")
+        else:
+            print("Creating the file")
+            with open(r'{}file.list'.format(get_path_episode_folder(anime_name, episode)), 'w') as fp:
+                fp.write("\n".join(str(
+                    "file "+"'"+os.path.basename(urlparse(item).path)+"'") for item in links))
         # Getting the key for decryption
         key = download_key(anime_name, episode)
+        print("Got the key")
         i = 0
         pbar = tqdm(desc='Downloading segments', total=len(links))
         while i < len(links):
@@ -612,7 +619,7 @@ def compile(anime_name, episode):
     print("Compiling the segments into video")
     print("Location ", get_path(anime_name))
     result = subprocess.run(["ffmpeg", "-f", "concat", "-safe", "0", "-i", file, "-c", "copy", "-y",
-                            get_video_episode(anime_name, episode)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                             get_video_episode(anime_name, episode)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if(os.path.exists(get_video_episode(anime_name, episode))):
         # print(result.stdout, result.stderr)
         shutil.rmtree(path)
@@ -634,53 +641,61 @@ def download_segments(link, anime_name, episode, key, retry=0):
         segment (str): Name of the segment to be downloaded as a subprocess
     """
     segment = os.path.basename(urlparse(link).path)[:-3]
-    # print("Download started for {}".format(segment))
-    global headers
-    try:
-        response = s.get(link, headers=headers)
-        response.raise_for_status()
-    except requests.exceptions.RequestException as err:
-        print("OOps: Something Else", err)
-        print("Retrying ", segment)
-        response = s.get(link, headers=headers)
-    except requests.exceptions.HTTPError as httpError:
-        print("Http Error:", httpError)
-    except requests.exceptions.ConnectionError as connectionError:
-        print("Error Connecting:", connectionError)
-    except requests.exceptions.Timeout as timeoutError:
-        print("Timeout Error:", timeoutError)
-    ts = response.content
-    total_size_in_bytes = int(response.headers.get('content-length', 0))
-    block_size = 1024
-    while len(ts) % 16 != 0:
-        ts += b"0"
     name = get_path_episode_folder(anime_name, episode)+segment+".ts"
-    progress_bar = tqdm(desc="{}".format(
-        segment), total=total_size_in_bytes, unit='iB', unit_scale=True)
-    # print(len(ts))
-    for data in range(len(ts), 1024):
-        print(len(data), type(data))
-    with open(name, "ab") as file:
-        file.write(key.decrypt(ts))
-    for data in response.iter_content(block_size):
-        progress_bar.update(len(data))
-        # file.write(key.decrypt(ts))
-    progress_bar.clear()
-    progress_bar.close()
-    # if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
-    # print("ERROR, something went wrong")
-    # if os.path.exists(name):
-    # print(segment, "download completed")
-    if not os.path.exists(name):
-        if retry < 3:
-            download_segments(link, anime_name, episode, key, retry+1)
-        else:
-            print("Something went wrong, servers not working properly")
-            exit()
+    global headers
+    if(os.path.exists(name)):
+        print("{} already Downloaded".format(segment))
+    else:
+        # print("Download started for {}".format(segment))
+        # response = sreq(link)
+        try:
+            response = s.get(link, headers=headers)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as err:
+            print("OOps: Something Else", err)
+            print("Retrying ", segment)
+            response = s.get(link, headers=headers)
+        except requests.exceptions.HTTPError as httpError:
+            print("Http Error:", httpError)
+        except requests.exceptions.ConnectionError as connectionError:
+            print("Error Connecting:", connectionError)
+        except requests.exceptions.Timeout as timeoutError:
+            print("Timeout Error:", timeoutError)
+        ts = response.content
+        total_size_in_bytes = int(response.headers.get('content-length', 0))
+        block_size = 1024
+        while len(ts) % 16 != 0:
+            ts += b"0"
+        progress_bar = tqdm(desc="{}".format(
+            segment), total=total_size_in_bytes, unit='iB', unit_scale=True)
+        # print(len(ts))
+        for data in range(len(ts), 1024):
+            print(len(data), type(data))
+        with open('{}.encrypted'.format(name), "ab") as file:
+            # file.write(key.decrypt(ts))
+            for data in response.iter_content(block_size):
+                progress_bar.update(len(data))
+            progress_bar.close()
+        progress_bar.clear()
+        if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
+            print("ERROR, something went wrong")
+
+        with open(name, "ab") as file:
+            file.write(key.decrypt(ts))
+        # if os.path.exists(name):
+        # print(segment, "download completed")
+        if not os.path.exists(name):
+            if retry < 3:
+                download_segments(link, anime_name, episode, key, retry+1)
+            else:
+                print("Something went wrong, servers not working properly")
+                exit()
 
 
 def updates():
+    global max
     res = "https://animepahe.com/api?m=airing&page1"
+    # response = req(res)
     try:
         response = requests.get(res)
         response.raise_for_status()
@@ -694,7 +709,8 @@ def updates():
         print("Timeout Error:", timeoutError)
 
     data = response.json()['data']
-    anime_list = open("myanimelist.txt").readlines()
+    with open('{}/myanimelist.txt'.format(script_path)) as f:
+        anime_list = [line.strip() for line in f]
     count = 0
     for episode in data:
         if episode['anime_title'] in anime_list:
@@ -702,13 +718,17 @@ def updates():
             session = episode['session']
             anime_name = episode['anime_title']
             episode = episode['episode']
+            print("New Episode {} of {} found".format(episode, anime_name))
+            max = episode
             if not (os.path.exists(get_video_episode(anime_name, episode))):
                 link = get_site_link(anime_name, int(
                     episode), "720", "jpn", anime_id, session)
                 video_link = get_playlist_link(link)
                 download_video(anime_name, episode, video_link, 50)
                 count += 1
-                print("New episode for {} downloaded".format(anime_name))
+            else:
+                print("File Already Present")
+                continue
     if count == 0:
         print("No new episode found")
 
