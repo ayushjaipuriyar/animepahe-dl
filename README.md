@@ -68,3 +68,4 @@ options:
 - [x] ~~New issue with ffmpeg trouble with audio , aac codec issue~~
 - [ ] Change the default download location ? :thinking: or as an option ?
 - [x] Resuming Capability
+- [ ] Some probelm with naming scheme
