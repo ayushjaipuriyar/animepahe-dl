@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from tqdm import tqdm
-import sys
 import shutil
 import os
 from urllib.parse import urlparse
@@ -13,7 +12,6 @@ import re
 import math
 import threading
 import argparse
-from tqdm.auto import tqdm
 from Crypto.Cipher import AES
 from pyfzf.pyfzf import FzfPrompt
 from requests.adapters import HTTPAdapter
@@ -29,9 +27,12 @@ s = requests.session()
 # def run_task(cmd):
 
 #     try:
-#         # create a default tqdm progress bar object, unit='B' defines a String that will be used to define the unit of each iteration in our case bytes
-#         with tqdm(unit='B', unit_scale=True, miniters=1, desc="run_task={}".format(cmd)) as t:
-#             # subprocess.PIPE gets the output of the child process
+#         # create a default tqdm progress bar object, unit='B' defines a
+#           String that will be used to define the unit of each iteration in
+#           our case bytes
+#           with tqdm(unit='B', unit_scale=True, miniters=1,
+#                     desc="run_task={}".format(cmd)) as t:
+#           # subprocess.PIPE gets the output of the child process
 #             process = subprocess.Popen(cmd, shell=True, bufsize=1, universal_newlines=True, stdout=subprocess.PIPE,
 #                                        stderr=subprocess.PIPE)
 
@@ -336,8 +337,8 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
         # Retrieve list the video files available for the episode
         try:
             response = requests.get(
-                "https://animepahe.com/api?m=embed&id={}&session={}&p=kwik".format(
-                    anime_id, session)
+                "https://animepahe.com/api?m=links&id={}&p=kwik".format(
+                    session)
             )
             response.raise_for_status()
         except requests.exceptions.RequestException as err:
