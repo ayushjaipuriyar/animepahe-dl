@@ -1,26 +1,39 @@
 #!/usr/bin/env python3
 
-from tqdm import tqdm
-import shutil
-import os
-from urllib.parse import urlparse
-import subprocess
-from bs4 import BeautifulSoup
-import requests
-import json
-import re
-import math
-import threading
 import argparse
+import http
+import json
+import logging
+import math
+import os
+import re
+import shutil
+import subprocess
+import threading
+from urllib.parse import urlparse
+
+import requests
+from bs4 import BeautifulSoup
 from Crypto.Cipher import AES
 from pyfzf.pyfzf import FzfPrompt
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from tqdm import tqdm
+
 fzf = FzfPrompt()
 max = 1
 script_path = os.getcwd()
 script_path = '/home/ayush/Videos/Anime'
 s = requests.session()
+
+
+def verbose():
+    http.client.HTTPConnection.debuglevel = 1
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
+    requests_log = logging.getLogger("requests.packages.urllib3")
+    requests_log.setLevel(logging.DEBUG)
+    requests_log.propagate = True
 
 
 """
@@ -157,7 +170,7 @@ def get_video_episode(anime_name, episode):
 def download_anime_list():
     """Parse animepahe.com/anime to retrieve all the anime with their UUIDs
     """
-    res = 'https://animepahe.com/anime'
+    # res = 'https://animepahe.com/anime'
     # response = req(res)
     try:
         response = requests.get('https://animepahe.com/anime/')
@@ -349,7 +362,6 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
             print("Error Connecting:", connectionError)
         except requests.exceptions.Timeout as timeoutError:
             print("Timeout Error:", timeoutError)
-
         data = json.loads(response.text)['data']
     final_list = []
     # Get the desired quality according to the possible video files
@@ -378,7 +390,8 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
         for element in range(len(audio_list)):
             # Checking if that audio is possible or not
             if(audio_list[element]['audio'] == audio):
-                audio_number = element
+                if(audio_list[element]['av1'] == 0):
+                    audio_number = element
             else:
                 # The specified audio doesn't exists hence select from the available audios
                 print(
@@ -735,6 +748,8 @@ def updates():
 
 
 def main(args):
+    if(args.verbose):
+        verbose()
     if(args.updates):
         updates()
     else:
@@ -775,6 +790,8 @@ if __name__ == "__main__":
                         help='Number of threads to use to download')
     parser.add_argument('-u', '--updates', action='store_true',
                         help='Updater')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='Logs')
 
     args = parser.parse_args()
     main(args)
