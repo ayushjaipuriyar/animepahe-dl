@@ -69,3 +69,4 @@ options:
 - [ ] Change the default download location ? :thinking: or as an option ?
 - [x] Resuming Capability
 - [ ] Some probelm with naming scheme
+- [ ] What if no quality present ?

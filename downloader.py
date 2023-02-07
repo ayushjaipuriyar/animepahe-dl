@@ -273,7 +273,7 @@ def get_source_file(anime_name, anime_slug):
     i = 1
     episode_list = []
     # Running for all the pages possible to have the links for the episodes
-    while(i <= pages):
+    while (i <= pages):
         try:
             response = x.get(
                 "https://animepahe.com/api?m=release&id={}&sort=episode_asc&page={}".format(anime_slug, i))
@@ -335,7 +335,7 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
     Returns:
         string: Link to the site containing the m3u8 file
     """
-    if(anime_id == "" and session == ""):
+    if (anime_id == "" and session == ""):
         path = get_path(anime_name)
         with open("{}/.source.json".format(path), 'r') as source_file:
             data = json.load(source_file)['data']
@@ -343,7 +343,7 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
             if element['episode'] == episode:
                 anime_id = element['anime_id']
                 session = element['session']
-    if(anime_id == "" and session == ""):
+    if (anime_id == "" and session == ""):
         print("{} episode {} not found".format(anime_name, episode))
         exit()
     else:
@@ -365,7 +365,7 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
         data = json.loads(response.text)['data']
     final_list = []
     # Get the desired quality according to the possible video files
-    if(quality == ""):
+    if (quality == ""):
         all_keys = set().union(*(d.keys() for d in data))
         for i in all_keys:
             print(i)
@@ -381,7 +381,7 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
         if quality_list[element] == quality:
             audio_list.append(data[element]['{}'.format(quality)])
     # Checking if the audio option is supplied or not
-    if(audio == ""):
+    if (audio == ""):
         # Getting the desired audio
         for element in range(len(audio_list)):
             print(str(element) + " " + str(audio_list[element]['audio']))
@@ -389,8 +389,8 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
     else:
         for element in range(len(audio_list)):
             # Checking if that audio is possible or not
-            if(audio_list[element]['audio'] == audio):
-                if(audio_list[element]['av1'] == 0):
+            if (audio_list[element]['audio'] == audio):
+                if (audio_list[element]['av1'] == 0):
                     audio_number = element
             else:
                 # The specified audio doesn't exists hence select from the available audios
@@ -556,7 +556,7 @@ def download_video(anime_name, episode, res, t=0):
         if not os.path.exists(get_path_episode_folder(anime_name, episode)):
             os.makedirs(get_path_episode_folder(anime_name, episode))
         # Saving the m3u8 file
-        if(os.path.exists("{}playlist.m3u8".format(get_path_episode_folder(anime_name, episode)))):
+        if (os.path.exists("{}playlist.m3u8".format(get_path_episode_folder(anime_name, episode)))):
             print("m3u8 file already present")
         else:
             print("Trying to download the m3u8 file")
@@ -583,7 +583,7 @@ def download_video(anime_name, episode, res, t=0):
                     links.append(line[:-1])
 
         # Saving the links in order present in the m3u8 file for later on merging the files
-        if(os.path.exists("{}file.list".format(get_path_episode_folder(anime_name, episode)))):
+        if (os.path.exists("{}file.list".format(get_path_episode_folder(anime_name, episode)))):
             print("File list already present")
         else:
             print("Creating the file")
@@ -634,7 +634,7 @@ def compile(anime_name, episode):
     print("Location ", get_path(anime_name))
     result = subprocess.run(["ffmpeg", "-f", "concat", "-safe", "0", "-i", file, "-c", "copy", "-y",
                              get_video_episode(anime_name, episode)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if(os.path.exists(get_video_episode(anime_name, episode))):
+    if (os.path.exists(get_video_episode(anime_name, episode))):
         # print(result.stdout, result.stderr)
         shutil.rmtree(path)
         print("{} Episode {} downloaded".format(anime_name, episode))
@@ -657,7 +657,7 @@ def download_segments(link, anime_name, episode, key, retry=0):
     segment = os.path.basename(urlparse(link).path)[:-3]
     name = get_path_episode_folder(anime_name, episode)+segment+".ts"
     global headers
-    if(os.path.exists(name)):
+    if (os.path.exists(name)):
         print("{} already Downloaded".format(segment))
     else:
         # print("Download started for {}".format(segment))
@@ -748,9 +748,9 @@ def updates():
 
 
 def main(args):
-    if(args.verbose):
+    if (args.verbose):
         verbose()
-    if(args.updates):
+    if (args.updates):
         updates()
     else:
         download_anime_list()
