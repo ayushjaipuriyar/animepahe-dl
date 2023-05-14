@@ -1,3 +1,8 @@
+from bs4 import BeautifulSoup
+from pyfzf.pyfzf import FzfPrompt
+from Crypto.Cipher import AES
+from urllib.parse import urlparse
+from tqdm import tqdm
 import json
 import urllib3
 import os
@@ -7,58 +12,10 @@ import shutil
 import subprocess
 import math
 import argparse
-from tqdm import tqdm
-from urllib.parse import urlparse
-from Crypto.Cipher import AES
-from pyfzf.pyfzf import FzfPrompt
-from bs4 import BeautifulSoup
-
+import jsbeautifier.unpackers.packer as packer
 fzf = FzfPrompt()
 
 script_path = os.getcwd()
-
-
-def unPack(code):
-    def indent(code):
-        tabs = 0
-        old = -1
-        add = ''
-        try:
-            for i in range(len(code)):
-                if "{" in code[i]:
-                    tabs += 1
-                if "}" in code[i]:
-                    tabs -= 1
-                if old != tabs:
-                    old = tabs
-                    add = ""
-                    while old > 0:
-                        add += "\t"
-                        old -= 1
-                    old = tabs
-                code[i] = add + code[i]
-        finally:
-            tabs = None
-            old = None
-            add = None
-        return code
-
-    env = {
-        "eval": (lambda c: setattr(code, code, c)),
-        "window": {},
-        "document": {}
-    }
-
-    exec("with env: " + code)
-
-    code = str(code).replace(";", ";\n").replace("{", "\n{\n").replace(
-        "}", "\n}\n").replace("\n;\n", ";\n").replace("\n\n", "\n")
-
-    code = code.split("\n")
-    code = indent(code)
-
-    code = "\n".join(code)
-    return code
 
 
 def download(url, anime_name="", episode=None, key=None):
@@ -314,7 +271,45 @@ def select_episode_to_download(anime_name):
     return episodes
 
 
-def get_site_link(anime_name, episode, quality, audio="", anime_id="", session=""):
+def check_resolution(buttons, selected_quality):
+    matching_buttons = []
+    available_qualities = set()
+    for button in buttons:
+        if button.has_attr('data-resolution'):
+            available_qualities.add(button['data-resolution'])
+            if button['data-resolution'] == selected_quality:
+                matching_buttons.append(button)
+    if len(matching_buttons) > 0:
+        return matching_buttons
+    else:
+        print(f"Quality {selected_quality} is not available.")
+        print("Available options are:")
+        for quality in available_qualities:
+            print(quality)
+        selected_quality = input("Please choose from the available options: ")
+        return check_resolution(buttons, selected_quality)
+
+
+def check_audio(buttons, selected_audio):
+    matching_buttons = []
+    available_audios = set()
+    for button in buttons:
+        if button.has_attr('data-audio'):
+            available_audios.add(button['data-audio'])
+            if button['data-audio'] == selected_audio:
+                matching_buttons.append(button)
+    if len(matching_buttons) > 0:
+        return matching_buttons
+    else:
+        print(f"Audio {selected_audio} is not available.")
+        print("Available options are:")
+        for audio in available_audios:
+            print(audio)
+        selected_audio = input("Please choose from the available options: ")
+        return check_audio(buttons, selected_audio)
+
+
+def get_site_link(anime_name, episode, quality, audio, anime_slug="", anime_id="", session=""):
     if anime_id == "" and session == "":
         path = get_path(anime_name)
         with open("{}/.source.json".format(path), "r") as source_file:
@@ -327,120 +322,35 @@ def get_site_link(anime_name, episode, quality, audio="", anime_id="", session="
         print("{} episode {} not found".format(anime_name, episode))
         exit()
     else:
-        res = "https://animepahe.com/api?m=links&id={}&p=kwik".format(session)
-        data = json.loads(download(res).data)["data"]
-    qualities = set().union(*(d.keys() for d in data))
-    qualities = [int(x) for x in qualities]
-    if int(quality) in qualities:
-        print("Required quality is present\n")
-    else:
-        print(
-            "Required quality {} is not present reverting to the highest quality possible {}".format(
-                quality, max(qualities)
-            )
-        )
-        quality = max(qualities)
-    audios = []
-    for element in data:
-        if element.get(str(quality)) is not None:
-            audios.append(element["{}".format(str(quality))]["audio"])
-    if audio in audios:
-        print("Selected audio is present\n")
-    else:
-        print("Selected audio is not present hence reverting to jpn")
-        audio = "jpn"
-    for element in data:
-        if element.get(str(quality)) is not None:
-            if element["{}".format(str(quality))]["audio"] == audio:
-                if element["{}".format(str(quality))]["av1"] == 0:
-                    return element["{}".format(str(quality))]["kwik"]
+        res = "https://animepahe.com/play/{}/{}".format(anime_slug, session)
+        data = download(res)
+        soup = BeautifulSoup(data, "html.parser")
+        buttons = soup.find_all(
+            "button", attrs={"data-src": True, "data-av1": 0})
+    fin = check_resolution(buttons, quality)
+    fin = check_audio(fin, audio)
+    print(fin)
+    link = fin[0]['data-src']
+    return link
 
 
 def get_playlist_link(link):
     data = download(link)
     soup = BeautifulSoup(data, "html.parser")
     scripts = soup.find_all("script", string=True)
-    packed = ""
-    slips = scripts[0].string.split("eval")
-    # print(scripts[0].string)
-    packed = slips[2][1:-2]
-    print(packed)
-    print(unPack(packed))
-
-    # z = x.text.strip()
-    # if re.match("^eval", z):
-    # print(x[8:-10])
-    # l = x.split("eval")
-    # print(l)
-    # sc = []
-    # for element in scripts:
-    # if re.match("^eval", x):
-    # sc = x.split("|")
-    # actual_link = ""
-    # for i in reversed(range(len(sc))):
-    #     if "eu" in sc[i]:
-    #         actual_link += "https://" + sc[i] + "-" + sc[i + 1] + "."
-    #     if "files" in sc[i]:
-    #         actual_link += +sc[i] + "."
-    #     if "" in sc[i]:
-    #         actual_link += "https://" + sc[i] + "-"
-    #     if "eu" in sc[i]:
-    #         actual_link += "https://" + sc[i] + "-"
-    #     if "eu" in sc[i]:
-    #         actual_link += "https://" + sc[i] + "-"
-    #     if "eu" in sc[i]:
-    #         actual_link += "https://" + sc[i] + "-"
-    #     if "eu" in sc[i]:
-    #         actual_link += "https://" + sc[i] + "-"
-    #     if "eu" in sc[i]:
-    #         actual_link += "https://" + sc[i] + "-"
-    #     if "eu" in sc[i]:
-    #         actual_link += "https://" + sc[i] + "-"
-
-    #     if "m3u8" in sc[i]:
-    #         actual_link.append(sc[i])
-    #         break
-    #     else:
-    #         actual_link.append(sc[i])
-    # print(actual_link)
-    # actual_link.pop(0)
-    # actual_link.pop(0)
-    # print(actual_link)
-    # actual_link[0] += "-"
-    # actual_link[1] += "."
-    # actual_link[2] += "."
-    # actual_link[3] += "."
-    # actual_link[4] += "/"
-    # actual_link[5] += "/"
-    # actual_link[6] += "/"
-    # actual_link[7] += "/"
-    # actual_link[8] += "/"
-    # actual_link[9] += "."
-    # m3u8_link = "https://" + "".join(actual_link)
-    # print(m3u8_link)
-    m3u8_link = ""
-    return m3u8_link
-
-    # Code for getting the m3u8 link with node
-
-    # var = ""
-    # for element in scripts:
-    #     temp = element.text.strip()
-    #     if(temp != ""):
-    #         var = temp
-    # # Evaluate the javascript code
-    # result = subprocess.run(["node", "-e", var],
-    #                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    # # Gets the link to the m3u8 file in the stderr
-    # source = result.stderr
-    # sub1 = "const source='"
-    # sub2 = "';const video="
-    # id1 = source.index(sub1)
-    # id2 = source.index(sub2)
-    # res = ''
-    # for idx in range(id1 + len(sub1), id2):
-    #     res = res + source[idx]
-    # return res
+    for script in scripts:
+        sc = script.string.encode('utf-8')
+        p = subprocess.Popen(
+            ['node'], shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate(sc)
+        match = re.search("const source='(.*)';", stderr.decode('utf-8'))
+        if match:
+            source = match.group(1)
+            print(source)
+            return str(source)
+        else:
+            print("Source not found in output.")
+            exit()
 
 
 def get_m3u8(anime_name, episode, res):
@@ -565,26 +475,6 @@ def compile(anime_name, episode):
             )
         )
 
-
-# if __name__ == "__main__":
-#     # download_anime_list()
-#     # anime_name, anime_slug = search_anime_name("")
-#     anime_name, anime_slug = search_anime_name("Chainsaw Man")
-#     # get_source_file(anime_name, anime_slug)
-#     # episodes = select_episode_to_download(anime_name)
-#     # for episode in episodes:
-
-#     link = get_site_link(anime_name, 11,
-#                          720, "jpn")
-#     video_link = get_playlist_link(link)
-#     get_m3u8(anime_name, 11, video_link)
-#     threads = 100
-#     download_video(anime_name, 11, threads)
-#     # compile(anime_name, 11)
-
-#     # print(episodes)
-
-
 def updates():
     res = "https://animepahe.com/api?m=airing&page1"
     data = json.loads(download(res))["data"]
@@ -601,7 +491,7 @@ def updates():
             max = episode
             if not (os.path.exists(get_video_episode(anime_name, episode))):
                 link = get_site_link(
-                    anime_name, int(episode), 720, "jpn", anime_id, session
+                    anime_name, int(episode), "720", "jpn", anime_id, session
                 )
                 video_link = get_playlist_link(link)
                 download_video(anime_name, episode, video_link, 50)
@@ -614,8 +504,6 @@ def updates():
 
 
 def main(args):
-    # if (args.verbose):
-    # verbose()
     if args.updates:
         updates()
     else:
@@ -633,7 +521,7 @@ def main(args):
             threads = args.threads
         for episode in episodes:
             link = get_site_link(anime_name, int(episode),
-                                 args.quality, args.audio)
+                                 args.quality, args.audio, anime_slug)
             print(
                 "\nGot the link for the episode {} of {}\n".format(
                     episode, anime_name)

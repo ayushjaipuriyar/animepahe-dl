@@ -12,6 +12,8 @@ tqdm = "==4.62.3"
 crypto = "*"
 brotlipy = "*"
 lxml = "*"
+urllib3 = "*"
+jsbeautifier = "*"
 
 [dev-packages]
 
