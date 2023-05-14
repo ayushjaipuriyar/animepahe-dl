@@ -1,6 +1,6 @@
 # animepahe-dl
 
-Python program to download anime from [AnimePahe](https://animepah.com)
+Python program to download anime from [AnimePahe](https://animepahe.com)
 
 ## Table of contents
 
@@ -9,19 +9,18 @@ Python program to download anime from [AnimePahe](https://animepah.com)
   - [Requirements](#requirements)
     - [How to Use](#how-to-use)
   - [Examples](#examples)
-  - [Todos](#todos)
+  - [To-dos](#to-dos)
 
 ## Requirements
 
 ```
-node (optional)
+node
 requests
 tqdm
 crypto
 pyfzf
 ffmpeg
 fzf
-
 ```
 
 ### How to Use
@@ -53,20 +52,20 @@ options:
 
 ```
 
-## Todos
+## To-dos
 
 ---
 
 - [x] ~~Trying to get rid of Node.js as a dependency~~
 - [x] ~~Fixing multiple entries of same anime in the myanimelist for checking for updates~~
-- [ ] Fixing codes
-- [ ] Option to select node or dumb method
+- [x] Fixing codes
+- [ ] ~~Option to select node or dumb method~~
 - [ ] Maybe making a proper package :thinking:
 - [ ] Option for adding anime for future checking ?
 - [x] Fix download indicator segments
 - [x] ~~Fix download indicator main indicator~~
-- [x] ~~New issue with ffmpeg trouble with audio , aac codec issue~~
+- [x] ~~New issue with ffmpeg trouble with audio , AAC codec issue~~
 - [ ] Change the default download location ? :thinking: or as an option ?
 - [x] Resuming Capability
-- [ ] Some probelm with naming scheme
+- [ ] Some problem with naming scheme
 - [ ] What if no quality present ?
