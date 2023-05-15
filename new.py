@@ -12,10 +12,9 @@ import shutil
 import subprocess
 import math
 import argparse
-import jsbeautifier.unpackers.packer as packer
 fzf = FzfPrompt()
-
 script_path = os.getcwd()
+max_episodes = 12
 
 
 def download(url, anime_name="", episode=None, key=None):
@@ -178,17 +177,12 @@ def download_anime_list():
     r = download(url)
     soup = BeautifulSoup(r.data, "html.parser")
     divContainer = soup.find_all("div", {"class": "tab-content"})
-    f = open("animelist.txt", "w")
-    for tag in divContainer:
-        for tags in tag.find_all("a"):
-            f.write(
-                tags.attrs["href"].removeprefix("/anime/")
-                + "::::"
-                + tags.text.strip()
-                + "::::"
-            )
-            f.write("\n")
-    f.close
+    with open("animelist.txt", "w") as f:
+        for tag in divContainer:
+            for tags in tag.find_all("a"):
+                uuid = tags.attrs['href'].removeprefix('/anime/')
+                name = tags.text.strip()
+                f.write("{}::::{}\n".format(uuid, name))
 
 
 def get_video_episode(anime_name, episode):
@@ -201,11 +195,28 @@ def get_video_episode(anime_name, episode):
     Returns:
         path: Return the path with the name of the file to be downloaded
     """
-    global max
+    global max_episodes
     name = get_path(anime_name) + "/" + anime_name + \
         " Episode " + str(episode) + ".mp4"
 
     return name
+
+
+def add_anime_to_myanimelist(anime_name):
+    """Adds an anime name to the myanimelist file, after prompting the user to confirm"""
+    with open(os.path.join(script_path, 'myanimelist.txt'), 'a+', encoding='utf-8') as f:
+        f.seek(0)
+        if anime_name in f.read():
+            print(f"{anime_name} already present")
+            return
+    print("Do you want to add {} to myanimelist.txt? (y/n)".format(anime_name))
+    response = input().strip().lower()
+    if response == 'y':
+        with open(os.path.join(script_path, 'myanimelist.txt'), 'a+', encoding='utf-8') as f:
+            f.write(f"{anime_name}\n")
+            print(f"{anime_name} added to myanimelist")
+    else:
+        print(f"{anime_name} not added to myanimelist")
 
 
 def search_anime_name(anime=""):
@@ -217,15 +228,15 @@ def search_anime_name(anime=""):
         # print(data)
 
         for element in data["data"]:
-            anime_list.append(element["session"] + "::::" + element["title"])
-
+            uuid = element['session']
+            name = element['title']
+            anime_list.append("{}::::{}".format(uuid, name))
     else:
         anime_list = open("animelist.txt", "r").readlines()
-
     result = fzf.prompt(anime_list)[0]
-    anime_slug = result.split("::::")[0]
-    anime_name = result.split("::::")[1]
+    anime_slug, anime_name = result.split("::::")
     # Adding names to myanimelist
+    add_anime_to_myanimelist(anime_name)
     return anime_name, anime_slug
 
 
@@ -234,18 +245,16 @@ def get_source_file(anime_name, anime_slug):
     data = download(res)
     data = json.loads(download(res).data)
     pages = data["last_page"]
-    i = 1
     episode_list = []
-    while i <= pages:
+    for i in range(1, pages+1):
         res = (
             "https://animepahe.com/api?m=release&id={}&sort=episode_asc&page={}".format(
                 anime_slug, i
             )
         )
         data = json.loads(download(res).data)["data"]
-        episode_list = episode_list + data
-        i += 1
-        org = dict({"data": episode_list})
+        episode_list += data
+    org = {"data": episode_list}
     # print(episode_list)
     path = get_path(anime_name)
     print(path)
@@ -256,18 +265,45 @@ def get_source_file(anime_name, anime_slug):
 
 
 def select_episode_to_download(anime_name):
+    global max_episodes
     path = get_path(anime_name)
     print("Download location ", path)
     with open("{}/.source.json".format(path), "r") as f:
         data = json.load(f)["data"]
+    max_episodes = data[-1]["episode"]
     for element in data:
         print("Episode {}".format(element["episode"]))
-    episodes = []
-    episodes = [
-        int(x) for x in input("Enter episode numbers, seperated by space :").split()
-    ]
-    global max
-    max = data[-1]["episode"]
+
+    valid = False
+    while not valid:
+        episodes = set()
+        s = True
+        user_input = input(
+            "Enter episode numbers or ranges, separated by space: ")
+        for r in user_input.split():
+            if "-" in r:
+                start, end = r.split("-")
+                if (start.isdigit() and end.isdigit()) and s:
+                    if int(start) > int(end):
+                        start, end = end, start
+                    episodes.update(range(int(start), int(end)+1))
+                else:
+                    s = False
+            else:
+                if r.isdigit() and s:
+                    episodes.add(int(r))
+                else:
+                    s = False
+        episodes = sorted(list(episodes))
+        if not s:
+            print(
+                "Invalid input. Please enter valid episode numbers separated by space, and ranges using '-'.")
+        elif len(episodes) > 0:
+            if max(episodes) > max_episodes or min(episodes) < 1:
+                print("Out of range episodes selected")
+        else:
+            valid = True
+
     return episodes
 
 
@@ -309,16 +345,17 @@ def check_audio(buttons, selected_audio):
         return check_audio(buttons, selected_audio)
 
 
-def get_site_link(anime_name, episode, quality, audio, anime_slug="", anime_id="", session=""):
-    if anime_id == "" and session == "":
+def get_site_link(anime_name, episode, quality, audio, anime_slug, session=None):
+    if session is None:
         path = get_path(anime_name)
-        with open("{}/.source.json".format(path), "r") as source_file:
+        source_file = os.path.join(path, ".source.json")
+        with open(source_file, "r") as source_file:
             data = json.load(source_file)["data"]
         for element in data:
             if element["episode"] == episode:
-                anime_id = element["anime_id"]
                 session = element["session"]
-    if anime_id == "" and session == "":
+                break
+    if session is None:
         print("{} episode {} not found".format(anime_name, episode))
         exit()
     else:
@@ -354,18 +391,17 @@ def get_playlist_link(link):
 
 
 def get_m3u8(anime_name, episode, res):
-    if not os.path.exists(get_path_episode_folder(anime_name, episode)):
-        os.makedirs(get_path_episode_folder(anime_name, episode))
-    if os.path.exists(
-        "{}playlist.m3u8".format(get_path_episode_folder(anime_name, episode))
-    ):
+    folder_path = get_path_episode_folder(anime_name, episode)
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    file_path = "{}playlist.m3u8".format(
+        get_path_episode_folder(anime_name, episode))
+    if os.path.exists(file_path):
         print("m3u8 file already present")
     else:
         data = download(res).read()
-        open(
-            "{}playlist.m3u8".format(
-                get_path_episode_folder(anime_name, episode)), "wb"
-        ).write(data)
+        with open(file_path, "wb") as f:
+            f.write(data)
 
 
 def download_video(anime_name, episode, u_threads=0):
@@ -440,40 +476,45 @@ def download_video(anime_name, episode, u_threads=0):
     # else:
 
 
-def compile(anime_name, episode):
-    path = get_path_episode_folder(anime_name, episode)
-    file = path + "file.list"
-    print("Compiling the segments into video")
-    print("Location ", get_path(anime_name))
-    result = subprocess.run(
-        [
-            "ffmpeg",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            file,
-            "-c",
-            "copy",
-            "-y",
-            get_video_episode(anime_name, episode),
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if os.path.exists(get_video_episode(anime_name, episode)):
-        # print(result.stdout, result.stderr)
-        shutil.rmtree(path)
-        print("{} Episode {} downloaded".format(anime_name, episode))
-    else:
-        print("Some error occurred while compiling the video", result.stderr)
+def compile_video(anime_name, episode):
+    """
+    Compiles the segments of an anime episode into a single video file using ffmpeg.
+
+    Args:
+        anime_name (str): The name of the anime.
+        episode (str): The episode number as a string (e.g., "01").
+
+    Returns:
+        None
+    """
+    episode_folder = get_path_episode_folder(anime_name, episode)
+    list_file_path = os.path.join(episode_folder, "file.list")
+    output_video_path = get_video_episode(anime_name, episode)
+
+    # Use ffmpeg to concatenate the segments into a video
+    cmd = [
+        "ffmpeg",
+        "-f", "concat",
+        "-safe", "0",
+        "-i", list_file_path,
+        "-c", "copy",
+        "-y", output_video_path
+    ]
+    try:
+        subprocess.check_call(cmd, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as e:
+        print("Failed to compile the video: {}".format(e.stderr))
+        print("You can try running the following command manually in the episode folder:")
         print(
-            "\nHence the folder is not deleted for the episode segments have not been deleted\nYou can try running [ffmpeg -f concat 0safe 0 -i file.list -c copy -y {}] in the episode folder to get your required episode {} of your anime {}".format(
-                anime_name + " " + episode + ".mp4", episode, anime_name
-            )
-        )
+            "ffmpeg -f concat -safe 0 -i file.list -c copy -y {}".format(output_video_path))
+        return
+
+    # If the video was created successfully, delete the episode folder
+    shutil.rmtree(episode_folder)
+    print("{} episode {} downloaded to {}".format(
+        anime_name, episode, output_video_path))
+
 
 def updates():
     res = "https://animepahe.com/api?m=airing&page1"
@@ -484,15 +525,15 @@ def updates():
     for episode in data:
         if episode["anime_title"] in anime_list:
             anime_id = episode["anime_id"]
+            uuid = episode["anime_session"]
             session = episode["session"]
             anime_name = episode["anime_title"]
             episode = episode["episode"]
             print("New Episode {} of {} found".format(episode, anime_name))
-            max = episode
+            max_episode = episode
             if not (os.path.exists(get_video_episode(anime_name, episode))):
-                link = get_site_link(
-                    anime_name, int(episode), "720", "jpn", anime_id, session
-                )
+                link = get_site_link(anime_name, int(
+                    episode), "720", "jpn", uuid, session)
                 video_link = get_playlist_link(link)
                 download_video(anime_name, episode, video_link, 50)
                 count += 1

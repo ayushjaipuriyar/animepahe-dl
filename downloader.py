@@ -36,53 +36,6 @@ def verbose():
     requests_log.propagate = True
 
 
-"""
-# def run_task(cmd):
-
-#     try:
-#         # create a default tqdm progress bar object, unit='B' defines a
-#           String that will be used to define the unit of each iteration in
-#           our case bytes
-#           with tqdm(unit='B', unit_scale=True, miniters=1,
-#                     desc="run_task={}".format(cmd)) as t:
-#           # subprocess.PIPE gets the output of the child process
-#             process = subprocess.Popen(cmd, shell=True, bufsize=1, universal_newlines=True, stdout=subprocess.PIPE,
-#                                        stderr=subprocess.PIPE)
-
-#             # print subprocess output line-by-line as soon as its stdout buffer is flushed in Python 3:
-#             for line in process.stdout:
-#                 # Update the progress, since we do not have a predefined iterator
-#                 # tqdm doesn't know before hand when to end and cant generate a progress bar
-#                 # hence elapsed time will be shown, this is good enough as we know
-#                 # something is in progress
-#                 t.update()
-#                 # forces stdout to "flush" the buffer
-#                 sys.stdout.flush()
-
-#             # We explicitly close stdout
-#             process.stdout.close()
-
-#             # wait for the return code
-#             return_code = process.wait()
-
-#             # if return code is not 0 this means our script returns errors out
-#             if return_code != 0:
-#                 raise subprocess.CalledProcessError(return_code, cmd)
-
-#     except subprocess.CalledProcessError as e:
-#         sys.stderr.write(
-#             "common::run_command() : [ERROR]: output = {}, error code = {}\n".format(e.output, e.returncode))
-
-
-# create_test_bash_script()
-
-# # run your terminal command using below
-# run_task('chmod 755 hello && ./hello')
-
-# run_task('xx*3238')  # this will fail not a valid command﻿﻿
-"""
-
-
 retry_strategy = Retry(
     total=3,
     backoff_factor=2,
@@ -176,74 +129,69 @@ def download_anime_list():
         response = requests.get('https://animepahe.com/anime/')
         response.raise_for_status()
     except requests.exceptions.RequestException as err:
-        print("OOps: Something Else", err)
-    except requests.exceptions.HTTPError as httpError:
-        print("Http Error:", httpError)
-    except requests.exceptions.ConnectionError as connectionError:
-        print("Error Connecting:", connectionError)
-    except requests.exceptions.Timeout as timeoutError:
-        print("Timeout Error:", timeoutError)
+        print(f"Error: {err}")
+        quit()
     # Parsing the the request sent
-    soup = BeautifulSoup(response.content, 'lxml')
+    soup = BeautifulSoup(response.content, 'html.parser')
     divContainer = soup.find_all("div", {"class": "tab-content"})
     # Storing them to the file
     f = open('animelist.txt', 'w')
     for tag in divContainer:
         for tags in tag.find_all("a"):
-            f.write(tags.attrs['href'].removeprefix(
-                '/anime/') + " ::::" + tags.text.strip() + "::::")
+            uuid = tags.attrs['href'].removeprefix('/anime/')
+            name = tags.text.strip()
+            f.write("{}::::{}".format(uuid, name))
             f.write("\n")
     f.close()
 
 
-def search_anime_name(temp=""):
+def add_anime_to_myanimelist(anime_name):
+    """Adds an anime name to the myanimelist file, after prompting the user to confirm"""
+    print("Do you want to add {} to myanimelist.txt? (y/n)".format(anime_name))
+    response = input().strip().lower()
+    if response == 'y':
+        with open(os.path.join(script_path, 'myanimelist.txt'), 'a+', encoding='utf-8') as f:
+            f.seek(0)
+            if anime_name in f.read():
+                print(f"{anime_name} already added")
+            else:
+                f.write(f"{anime_name}\n")
+                print(f"{anime_name} added to myanimelist.txt")
+    else:
+        print(f"{anime_name} not added to myanimelist.txt")
+
+
+def search_anime_name(name=""):
     """Search from the earlier created anime list
         And write those name for future auto downloading
 
     Returns:
         list: This lst contains the anime_slug and anime_name, anime UUID and anime name respectively
     """
-    if temp != "":
-        temp = temp.replace(' ', '%20')
-        res = 'https://animepahe.com/api?m=search&q={}'.format(temp)
+    if name != "":
+        name = name.replace(' ', '%20')
+        res = 'https://animepahe.com/api?m=search&q={}'.format(name)
         try:
             response = requests.get(res)
             response.raise_for_status()
         except requests.exceptions.RequestException as err:
-            print("OOps: Something Else", err)
-        except requests.exceptions.HTTPError as httpError:
-            print("Http Error:", httpError)
-        except requests.exceptions.ConnectionError as connectionError:
-            print("Error Connecting:", connectionError)
-        except requests.exceptions.Timeout as timeoutError:
-            print("Timeout Error:", timeoutError)
+            print(f"Error: {err}")
+            quit()
         data = response.json()['data']
         anime_list = []
         for element in data:
-            anime_list.append(element['session'] +
-                              "::::"+element['title']+"::::")
-        # print(json.dumps(data, indent=4))
+            uuid = element['session']
+            anime_name = element['title']
+            anime_list.append("{}::::{}".format(uuid, anime_name))
         result = fzf.prompt(anime_list)[0]
-        anime_name = result.split('::::')[1]
-        anime_slug = result.split('::::')[0]
+        anime_slug, anime_name, _ = result.split('::::')
     else:
         anime_list = open("animelist.txt").readlines()
-        anime = fzf.prompt(anime_list)
+        result = fzf.prompt(anime_list)
         # Select your desired anime to download
-        anime_slug = anime[0].split(' ::::')[0]
-        anime_name = anime[0].split('::::')[1]
+        anime_slug, anime_name, _ = result.strip().split('::::')
     # Writing to anime names to the
-    flag = 0
-    print("Checking if {} already added".format(anime_name))
-    with open('{}/myanimelist.txt'.format(script_path), 'r+') as myanimelist:
-        Lines = myanimelist.readlines()
-        for line in Lines:
-            # print(line.strip())
-            if line.strip() == anime_name:
-                flag += 1
-        if flag == 0:
-            myanimelist.write(anime_name)
-            myanimelist.write('\n')
+    add_anime_to_myanimelist(anime_name)
     return anime_name, anime_slug
 
 
@@ -254,51 +202,37 @@ def get_source_file(anime_name, anime_slug):
         anime_name (str): Name of the anime
         anime_slug (str): UUID of the anime
     """
-    print("Getting list of episodes")
-    x = requests.session()
+    print("Getting list of episodes for {}".format(anime_name))
+    session = requests.session()
     try:
-        response = x.get(
+        response = session.get(
             "https://animepahe.com/api?m=release&id={}".format(anime_slug))
         response.raise_for_status()
     except requests.exceptions.RequestException as err:
         print("OOps: Something Else", err)
-    except requests.exceptions.HTTPError as httpError:
-        print("Http Error:", httpError)
-    except requests.exceptions.ConnectionError as connectionError:
-        print("Error Connecting:", connectionError)
-    except requests.exceptions.Timeout as timeoutError:
-        print("Timeout Error:", timeoutError)
+        quit()
 
     pages = json.loads(response.text)['last_page']
-    i = 1
     episode_list = []
     # Running for all the pages possible to have the links for the episodes
-    while (i <= pages):
+    for page in range(1, pages+1):
         try:
-            response = x.get(
+            response = session.get(
                 "https://animepahe.com/api?m=release&id={}&sort=episode_asc&page={}".format(anime_slug, i))
             response.raise_for_status()
         except requests.exceptions.RequestException as err:
             print("OOps: Something Else", err)
-        except requests.exceptions.HTTPError as httpError:
-            print("Http Error:", httpError)
-        except requests.exceptions.ConnectionError as connectionError:
-            print("Error Connecting:", connectionError)
-        except requests.exceptions.Timeout as timeoutError:
-            print("Timeout Error:", timeoutError)
+            quit()
+        data = response.json()["data"]
+        episode_list.extend(data)
 
-        data = json.loads(response.text)
-        temp = data['data']
-        episode_list = episode_list+temp
-        i += 1
-        org = dict({"data": episode_list})
     path = get_path(anime_name)
     # Checking if there exists a folder for the anime if not create one
-    if not os.path.exists(path):
-        os.makedirs(path)
+    os.makedirs(path, exist_ok=True)
     # Writing to the source file of that anime
-    with open("{}/.source.json".format(path), "w") as write_file:
-        json.dump(org, write_file)
+    source_data = {"data": episode_list}
+    with open("{}/.source.json".format(path), "w") as f:
+        json.dump(source_data, f)
 
 
 def select_episode_to_download(anime_name):
@@ -310,17 +244,30 @@ def select_episode_to_download(anime_name):
     Returns:
         list: List of all the episodes to download
     """
+    global max
     path = get_path(anime_name)
     print("Download location ", path)
     with open("{}/.source.json".format(path), 'r') as f:
         data = json.load(f)['data']
+    max = data[-1]['episode']
+    print("Episodes available {}".format(max))
     for element in data:
         print("Episode {}".format(element['episode']))
-    episodes = input(
-        "Enter the number of episodes to download, separated by space\n").split(' ')
-    global max
-    max = data[-1]['episode']
-    return episodes
+    while True:
+        episodes_input = input(
+            "Enter the episode numbers to download, separated by space: ")
+        episodes = [int(ep) for ep in episodes_input.split() if ep.isdigit()]
+
+        if not episodes:
+            print("Invalid input, please enter valid episode numbers.")
+            continue
+
+        if any(ep < 1 or ep > max for ep in episodes):
+            print(
+                f"Invalid episode number, please enter numbers between 1 and {max_episode}.")
+            continue
+
+        return episodes
 
 
 def get_site_link(anime_name, episode, quality="", audio="", anime_id="", session=""):
@@ -346,23 +293,17 @@ def get_site_link(anime_name, episode, quality="", audio="", anime_id="", sessio
     if (anime_id == "" and session == ""):
         print("{} episode {} not found".format(anime_name, episode))
         exit()
-    else:
         # Retrieve list the video files available for the episode
-        try:
-            response = requests.get(
-                "https://animepahe.com/api?m=links&id={}&p=kwik".format(
-                    session)
-            )
-            response.raise_for_status()
-        except requests.exceptions.RequestException as err:
-            print("OOps: Something Else", err)
-        except requests.exceptions.HTTPError as httpError:
-            print("Http Error:", httpError)
-        except requests.exceptions.ConnectionError as connectionError:
-            print("Error Connecting:", connectionError)
-        except requests.exceptions.Timeout as timeoutError:
-            print("Timeout Error:", timeoutError)
+    try:
+        response = requests.get(
+            "https://animepahe.com/api?m=links&id={}&p=kwik".format(
+                session)
+        )
+        response.raise_for_status()
         data = json.loads(response.text)['data']
+    except requests.exceptions.RequestException as err:
+        print("Oops: Something went wrong", err)
+        exit()
     final_list = []
     # Get the desired quality according to the possible video files
     if (quality == ""):
