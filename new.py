@@ -10,11 +10,14 @@ import re
 import threading
 import shutil
 import subprocess
-import math
+import datetime
+import time
 import argparse
+from notify import notification
 fzf = FzfPrompt()
 script_path = os.getcwd()
 max_episodes = 12
+app = "Animepahe-dl"
 
 
 def download(url, anime_name="", episode=None, key=None):
@@ -38,80 +41,8 @@ def download(url, anime_name="", episode=None, key=None):
     )
     try:
         r = http.request("GET", url, preload_content=False)
-    except urllib3.exceptions.BodyNotHttplibCompatible as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.ClosedPoolError as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.ConnectTimeoutError as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.DecodeError as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.DependencyWarning as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.EmptyPoolError as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.HTTPError as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.HTTPWarning as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.HeaderParsingError() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.HostChangedError() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.IncompleteRead() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.InsecurePlatformWarning as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.InsecureRequestWarning as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.InvalidChunkLength() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.InvalidHeader as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.LocationParseError() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.LocationValueError as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.MaxRetryError() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.NewConnectionError() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.PoolError() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.ProtocolError as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.ProxyError() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.ProxySchemeUnknown() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.ProxySchemeUnsupported as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.ReadTimeoutError() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.RequestError() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.ResponseError as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.ResponseNotChunked as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.SNIMissingWarning as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.SSLError as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.SecurityWarning as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.SubjectAltNameWarning as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.SystemTimeWarning as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.TimeoutError as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.TimeoutStateError as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.URLSchemeUnknown() as e:
-        print("Error:", e.reason)
-    except urllib3.exceptions.UnrewindableBodyError as e:
-        print("Error:", e.reason)
+    except Exception as e:
+        print("Error:", e)
     if anime_name != "":
         segment = os.path.basename(urlparse(url).path)[:-3]
         name = get_path_episode_folder(anime_name, episode) + segment + ".ts"
@@ -270,39 +201,37 @@ def select_episode_to_download(anime_name):
     print("Download location ", path)
     with open("{}/.source.json".format(path), "r") as f:
         data = json.load(f)["data"]
-    max_episodes = data[-1]["episode"]
+    max_episodes = int(data[-1]["episode"])
     for element in data:
         print("Episode {}".format(element["episode"]))
 
-    valid = False
-    while not valid:
+    while True:
         episodes = set()
-        s = True
         user_input = input(
             "Enter episode numbers or ranges, separated by space: ")
         for r in user_input.split():
             if "-" in r:
                 start, end = r.split("-")
-                if (start.isdigit() and end.isdigit()) and s:
+                if (start.isdigit() and end.isdigit()):
                     if int(start) > int(end):
                         start, end = end, start
                     episodes.update(range(int(start), int(end)+1))
                 else:
-                    s = False
+                    print("Invalid numbers {},{}".format(start, end))
+                    continue
             else:
-                if r.isdigit() and s:
+                if r.isdigit():
                     episodes.add(int(r))
                 else:
-                    s = False
+                    print("Invalid numbers {}".format(r))
+                    continue
         episodes = sorted(list(episodes))
-        if not s:
-            print(
-                "Invalid input. Please enter valid episode numbers separated by space, and ranges using '-'.")
-        elif len(episodes) > 0:
-            if max(episodes) > max_episodes or min(episodes) < 1:
+        if len(episodes) > 0:
+            if episodes[0] < int(data[0]['episode']) or episodes[-1] > int(data[-1]['episode']):
                 print("Out of range episodes selected")
-        else:
-            valid = True
+                continue
+            else:
+                break
 
     return episodes
 
@@ -471,7 +400,7 @@ def download_video(anime_name, episode, u_threads=0):
         i += p
         pbar.update(p)
     pbar.close()
-    compile(anime_name, episode)
+    compile_video(anime_name, episode)
 
     # else:
 
@@ -483,7 +412,7 @@ def compile_video(anime_name, episode):
     Args:
         anime_name (str): The name of the anime.
         episode (str): The episode number as a string (e.g., "01").
-
+#
     Returns:
         None
     """
@@ -514,17 +443,19 @@ def compile_video(anime_name, episode):
     shutil.rmtree(episode_folder)
     print("{} episode {} downloaded to {}".format(
         anime_name, episode, output_video_path))
+    notification('Compilation', message='{} episode {} downloaded to {}'.format(
+        anime_name, episode, output_video_path), app_name=app)
 
 
 def updates():
+    global max_episodes
     res = "https://animepahe.com/api?m=airing&page1"
-    data = json.loads(download(res))["data"]
+    data = json.loads(download(res).data)["data"]
     with open("{}/myanimelist.txt".format(script_path)) as f:
         anime_list = [line.strip() for line in f]
     count = 0
     for episode in data:
         if episode["anime_title"] in anime_list:
-            anime_id = episode["anime_id"]
             uuid = episode["anime_session"]
             session = episode["session"]
             anime_name = episode["anime_title"]
@@ -534,19 +465,64 @@ def updates():
             if not (os.path.exists(get_video_episode(anime_name, episode))):
                 link = get_site_link(anime_name, int(
                     episode), "720", "jpn", uuid, session)
-                video_link = get_playlist_link(link)
-                download_video(anime_name, episode, video_link, 50)
+                print("\nGot the link for the episode {} of {}\n".format(
+                    episode, anime_name))
+                m3u8_link = get_playlist_link(link)
+                get_m3u8(anime_name, episode, m3u8_link)
+                print("Got the link to download",)
+                download_video(anime_name, episode, 50)
                 count += 1
             else:
                 print("File Already Present")
                 continue
     if count == 0:
         print("No new episode found")
+    notification('Updates', message='No new episode found',
+                 app_name=app)
+    localtime = datetime.datetime.now()
+    new_time = localtime + datetime.timedelta(hours=5)
+    formatted_time = new_time.strftime("%I:%M:%S %p")
+    print("Sleeping for 5 hrs check after {}".format(formatted_time))
+    notification('Updates', message='Sleeping for {}'.format(formatted_time),
+                 app_name=app)
+    time.sleep(18000)
+    updates()
+
+
+def management():
+    with open(os.path.join(script_path, 'myanimelist.txt'), 'r') as f:
+        data = [line.strip() for line in f.readlines()]
+    print(data)
+    while True:
+        print("Currently present in the List\n")
+        for i in range(len(data)):
+            print(i+1, data[i])
+        print("\nPlease select an option:")
+        print("1. Remove")
+        print("4. Quit")
+        choice = input("> ")
+        if choice == "1":
+            x = int(input("Enter the number to remove"))
+            data.pop(x-1)
+        # elif choice == "2":
+            # print("You selected Option 2")
+        # elif choice == "3":
+            # print("You selected Option 3")
+        elif choice == "4":
+            with open(os.path.join(script_path, 'myanimelist.txt'), 'w') as f:
+                for element in data:
+                    f.write(str(element) + '\n')
+            print("Goodbye!")
+            break
+        else:
+            print("Invalid choice, please try again.")
 
 
 def main(args):
     if args.updates:
         updates()
+    elif args.management:
+        management()
     else:
         download_anime_list()
         anime_name, anime_slug = search_anime_name(args.name)
@@ -561,18 +537,24 @@ def main(args):
         else:
             threads = args.threads
         for episode in episodes:
-            link = get_site_link(anime_name, int(episode),
-                                 args.quality, args.audio, anime_slug)
-            print(
-                "\nGot the link for the episode {} of {}\n".format(
-                    episode, anime_name)
-            )
-            m3u8_link = get_playlist_link(link)
-            get_m3u8(anime_name, episode, m3u8_link)
-            print(
-                "Got the link to download",
-            )
-            download_video(anime_name, episode, threads)
+            output_video_path = get_video_episode(anime_name, episode)
+            if not os.path.exists(output_video_path):
+                link = get_site_link(anime_name, int(episode),
+                                     args.quality, args.audio, anime_slug)
+                print(
+                    "\nGot the link for the episode {} of {}\n".format(
+                        episode, anime_name)
+                )
+                m3u8_link = get_playlist_link(link)
+                get_m3u8(anime_name, episode, m3u8_link)
+                print(
+                    "Got the link to download",
+                )
+                download_video(anime_name, episode, threads)
+            else:
+                print("{} epiosode {} already downloaded".format(
+                    anime_name, episode))
+        print("Downloading Finished!!!")
 
 
 if __name__ == "__main__":
@@ -603,6 +585,8 @@ if __name__ == "__main__":
         help="Number of threads to use to download",
     )
     parser.add_argument("-u", "--updates", action="store_true", help="Updater")
+    parser.add_argument("-m", "--management",
+                        action='store_true', help="Management")
     parser.add_argument("-v", "--verbose", action="store_true", help="Logs")
 
     args = parser.parse_args()

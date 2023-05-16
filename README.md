@@ -59,13 +59,13 @@ options:
 - [x] ~~Trying to get rid of Node.js as a dependency~~
 - [x] ~~Fixing multiple entries of same anime in the myanimelist for checking for updates~~
 - [x] Fixing codes
-- [ ] ~~Option to select node or dumb method~~
+- [x] ~~Option to select node or dumb method~~ (No longer option possible Node is required)
 - [ ] Maybe making a proper package :thinking:
-- [ ] Option for adding anime for future checking ?
+- [x] Option for adding anime for future checking ?
 - [x] Fix download indicator segments
 - [x] ~~Fix download indicator main indicator~~
 - [x] ~~New issue with ffmpeg trouble with audio , AAC codec issue~~
 - [ ] Change the default download location ? :thinking: or as an option ?
 - [x] Resuming Capability
 - [ ] Some problem with naming scheme
-- [ ] What if no quality present ?
+- [x] What if no quality present ?
