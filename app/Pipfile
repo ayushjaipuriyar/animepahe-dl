@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+beautifulsoup4 = "*"
+pyfzf = "*"
+pycryptodome = "*"
+tqdm = "*"
+urllib3 = "*"
+PyQt6 = "*"
+platformdirs = "*"
+loguru = "*"
+plyer = "*"
+questionary = "*"
+
+[dev-packages]
+flake8 = "*"
