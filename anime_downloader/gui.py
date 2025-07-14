@@ -16,11 +16,11 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 
-import config
-import config_manager
-from api import AnimePaheAPI
-from downloader import Downloader
-from workers import EpisodeWorker, DownloadWorker, UpdateCacheWorker
+from . import config
+from . import config_manager
+from .api import AnimePaheAPI
+from .downloader import Downloader
+from .workers import EpisodeWorker, DownloadWorker, UpdateCacheWorker
 
 
 class SettingsDialog(QDialog):

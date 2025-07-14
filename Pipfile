@@ -4,15 +4,16 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+beautifulsoup4 = "*"
+pyfzf = "*"
+pycryptodome = "*"
+tqdm = "*"
 urllib3 = "*"
-structlog = "*"
-beautifulsoup4 = "==4.11.1"
-pycryptodome = "==3.15.0"
-pyfzf = "==0.3.1"
-requests = "==2.27.1"
-tqdm = "==4.62.3"
-crypto = "*"
-brotlipy = "*"
-lxml = "*"
+PyQt6 = "*"
+platformdirs = "*"
+loguru = "*"
+plyer = "*"
+questionary = "*"
 
 [dev-packages]
+flake8 = "*"

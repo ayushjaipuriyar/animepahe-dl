@@ -13,11 +13,11 @@ from urllib.parse import urlparse
 from PyQt6.QtCore import QThread, pyqtSignal
 from typing import List, Dict, Any
 
-from api import AnimePaheAPI
-from downloader import Downloader
-from models import Anime, Episode
-import config_manager
-import cli
+from .api import AnimePaheAPI
+from .downloader import Downloader
+from .models import Anime, Episode
+from . import config_manager
+from . import cli
 
 
 class UpdateCacheWorker(QThread):

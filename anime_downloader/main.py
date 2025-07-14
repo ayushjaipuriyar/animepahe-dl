@@ -9,7 +9,7 @@ command-line arguments provided.
 
 import sys
 import argparse
-from logger import logger
+from .logger import logger
 
 
 def main():
@@ -32,7 +32,7 @@ def main():
     if pre_args.gui:
         logger.info("Launching GUI...")
         # Dynamically import the GUI to avoid loading PyQt6 unless necessary.
-        from gui import run_gui
+        from .gui import run_gui
 
         # We reconstruct sys.argv to pass only the remaining arguments to the GUI.
         # This prevents PyQt from misinterpreting arguments meant for the CLI.
@@ -41,7 +41,7 @@ def main():
     else:
         # If --gui is not present, import and run the CLI.
         # The CLI will handle its own full argument parsing.
-        from cli import main as cli_main
+        from .cli import main as cli_main
 
         cli_main()
 

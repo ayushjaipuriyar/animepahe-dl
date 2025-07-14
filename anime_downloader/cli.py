@@ -21,13 +21,13 @@ import questionary
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # from plyer import notification
-import config
-import config_manager
-from api import AnimePaheAPI
-from downloader import Downloader
-from models import Anime, Episode
-from helper import sanitize_filename
-from logger import logger
+from . import config
+from . import config_manager
+from .api import AnimePaheAPI
+from .downloader import Downloader
+from .models import Anime, Episode
+from .helper import sanitize_filename
+from .logger import logger
 
 
 def get_anime_dir(anime_name: str, download_dir: str) -> str:

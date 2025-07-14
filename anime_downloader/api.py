@@ -12,9 +12,9 @@ from typing import Any, Dict, List, Optional
 import urllib3
 from bs4 import BeautifulSoup
 
-import config
-from models import Anime, Episode
-from logger import logger
+from . import config
+from .models import Anime, Episode
+from .logger import logger
 
 
 class AnimePaheAPI:

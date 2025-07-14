@@ -10,7 +10,7 @@ import json
 import os
 from typing import Any, Dict
 
-import config
+from . import config
 
 # The absolute path to the user's configuration file.
 CONFIG_FILE_PATH = os.path.join(config.BASE_DATA_DIR, "config.json")

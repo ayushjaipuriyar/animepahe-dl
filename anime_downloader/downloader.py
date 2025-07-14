@@ -22,9 +22,9 @@ from urllib.parse import urlparse
 from Crypto.Cipher import AES
 from tqdm import tqdm
 
-import config
-from api import AnimePaheAPI
-from logger import logger
+from . import config
+from .api import AnimePaheAPI
+from .logger import logger
 
 
 class Downloader:
