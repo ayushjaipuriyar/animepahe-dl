@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "animepahe-dl"
-dynamic = ["version"]
+version = "0.1.0"
 authors = [
     { name = "Ayush", email = "ayushjaipuriyar21@gmail.com" }
 ]
@@ -39,10 +39,11 @@ dependencies = [
 version = {attr = "anime_downloader.__version__"}
 
 [tool.semantic_release]
-version_variable = "anime_downloader/__init__.py:__version__"
+version_toml = ["pyproject.toml:project.version"]
 branch = "main"
 changelog_file = "CHANGELOG.md"
 build_command = "pip install build && python -m build"
 dist_path = "dist/"
 upload_to_pypi = "true"
 upload_to_release = "true"
+build_command = "python -m build"
