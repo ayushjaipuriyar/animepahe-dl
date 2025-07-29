@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.1.1 (2025-07-29)
+
+### Bug Fixes
+
+- 🐛 minro fix
+  ([`75ecba4`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/75ecba47c99282d7cf83ee3027fea77c82ee0c75))
+
+
 ## v5.1.0 (2025-07-29)
 
 ### Bug Fixes
