@@ -1,29 +1,74 @@
-name: Python package
+name: Release
 
 on:
   push:
     branches:
       - main
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # To push a new version tag and updated changelog
-      issues: write # To comment on issues and pull requests
-      pull-requests: write # To comment on issues and pull requests
+permissions:
+  contents: read
 
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-release-${{ github.ref_name }}
+      cancel-in-progress: false
+    concurrency: release
+    permissions:
+      id-token: 
+      contents: write
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Python Semantic Release
+        id: release
         uses: python-semantic-release/python-semantic-release@v10.2.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          pypi_token: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.release.outputs.released == 'true'
+
+      - name: Publish | Upload to GitHub Release Assets
+        uses: python-semantic-release/publish-action@v10.2.0
+        if: steps.release.outputs.released == 'true'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.release.outputs.tag }}
+
+      - name: Upload | Distribution Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: distribution-artifacts
+          path: dist
+          if-no-files-found: error
+  deploy:
+    runs-on: ubuntu-latest
+    needs: release
+    if: ${{ needs.release.outputs.released == 'true' }}
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Setup | Download Build Artifacts
+        uses: actions/download-artifact@v4
+        id: artifact-download
+        with:
+          name: distribution-artifacts
+          path: dist
+
+      # see https://docs.pypi.org/trusted-publishers/
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.12.4
+        with:
+          packages-dir: dist
+          print-hash: true
+          verbose: true
+          password: ${{ secrets.PYPI_PASSWORD }}

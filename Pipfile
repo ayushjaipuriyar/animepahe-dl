@@ -14,6 +14,9 @@ platformdirs = "*"
 loguru = "*"
 plyer = "*"
 questionary = "*"
+wheel = "*"
+twine = "*"
+python-semantic-release = "*"
 
 [dev-packages]
 flake8 = "*"

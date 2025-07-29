@@ -1,3 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anime_downloader"
+dynamic = ["version"]
+authors = [
+    { name = "Ayush", email = "ayushjaipuriyar21@gmail.com" }
+]
+description = "A simple anime downloader"
+readme = "README.md"
+requires-python = ">=3.6"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "beautifulsoup4",
+    "pyfzf",
+    "pycryptodome",
+    "tqdm",
+    "urllib3",
+    "PyQt6",
+    "platformdirs",
+    "loguru",
+    "plyer",
+    "questionary",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/ayushjaipuriyar/animepahe-dl"
+
+[project.scripts]
+"anime-downloader" = "anime_downloader.main:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "anime_downloader.__version__"}
 
 [tool.semantic_release]
 version_variable = "anime_downloader/__init__.py:__version__"
