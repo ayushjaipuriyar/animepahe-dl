@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.1.5 (2025-07-29)
+
+### Bug Fixes
+
+- 🐛 small fix to the deploy
+  ([`5cbadd6`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/5cbadd68b69c09b3bda586f704dec3a003b28b85))
+
+
 ## v5.1.4 (2025-07-29)
 
 ### Bug Fixes
