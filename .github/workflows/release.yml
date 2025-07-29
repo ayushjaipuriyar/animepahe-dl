@@ -69,7 +69,6 @@ jobs:
           name: distribution-artifacts
           path: dist
 
-      # see https://docs.pypi.org/trusted-publishers/
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@v1.12.4
         with:
@@ -78,7 +77,7 @@ jobs:
           verbose: true
 
       - name: Publish AUR package
-        uses: KSXGitHub/github-actions-deploy-aurv4.1.1
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
         with:
           pkgname: animepahe-dl
           pkgbuild: ./PKGBUILD
