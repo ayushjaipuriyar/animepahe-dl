@@ -17,3 +17,6 @@ questionary = "*"
 
 [dev-packages]
 flake8 = "*"
+python-semantic-release = "*"
+wheel = "*"
+twine = "*"

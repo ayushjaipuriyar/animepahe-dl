@@ -1,18 +1,23 @@
 
 import setuptools
+import re
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+def get_version():
+    with open("anime_downloader/__init__.py", "r") as f:
+        return re.search(r'__version__\s*=\s*[\'\"]([^\'\"]*)[\'\"]', f.read()).group(1)
+
 setuptools.setup(
     name="anime_downloader",
-    version="0.1.0",
+    version=get_version(),
     author="Ayush",
-    author_email="ayush@example.com",
+    author_email="ayushjaipuriyar21@gmail.com",
     description="A simple anime downloader",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/pypa/sampleproject",
+    url="https://github.com/ayushjaipuriyar/animepahe-dl",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
