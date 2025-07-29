@@ -14,7 +14,6 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-release-${{ github.ref_name }}
       cancel-in-progress: false
-    concurrency: release
     permissions:
       id-token: 
       contents: write
