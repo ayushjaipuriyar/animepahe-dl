@@ -15,7 +15,7 @@ jobs:
       group: ${{ github.workflow }}-release-${{ github.ref_name }}
       cancel-in-progress: false
     permissions:
-      id-token: 
+      id-token: write
       contents: write
     steps:
       - uses: actions/checkout@v4.2.2
