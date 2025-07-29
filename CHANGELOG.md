@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.1.4 (2025-07-29)
+
+### Bug Fixes
+
+- 🐛 fix the version logic
+  ([`bfa2b20`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/bfa2b20471f76ec2c0fb802422b07c8ac1b270a7))
+
+
 ## v5.1.3 (2025-07-29)
 
 
