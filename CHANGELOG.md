@@ -2,6 +2,18 @@
 
 <!-- version list -->
 
+## v4.0.0 (2025-07-29)
+
+### Bug Fixes
+
+- 🐛 relase some issue with oidc
+  ([`3491cf2`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/3491cf2a0f9dbe346faace3edb6eca3c8f27d3da))
+
+### Breaking Changes
+
+- 🧨 PYPI PUBLISH
+
+
 ## v3.0.0 (2025-07-29)
 
 
