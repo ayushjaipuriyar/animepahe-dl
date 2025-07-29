@@ -75,8 +75,8 @@ jobs:
 
       - name: Update PKGBUILD version
         run: |
-          sed -i "s/^pkgver=.*/pkgver=${{ needs.release.outputs.tag }}" PKGBUILD
-          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          sed -i "s#/^pkgver=.*#/pkgver=${{ needs.release.outputs.tag }}#" PKGBUILD
+          # sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
 
       - name: Publish AUR Package
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
