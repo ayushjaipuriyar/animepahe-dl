@@ -23,7 +23,7 @@ jobs:
           python-version: '3.x'
 
       - name: Python Semantic Release
-        uses: python-semantic-release/python-semantic-release@latest
+        uses: python-semantic-release/python-semantic-release@v10.2.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pypi_token: ${{ secrets.PYPI_TOKEN }}
