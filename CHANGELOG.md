@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.1.0 (2025-07-29)
+
+### Bug Fixes
+
+- 🐛 forgot @
+  ([`abd64d6`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/abd64d6dbbe65a5934ae4c20383a0b2f361fe705))
+
+
 ## v5.0.0 (2025-07-29)
 
 
