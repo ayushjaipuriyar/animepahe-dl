@@ -2,6 +2,21 @@
 
 <!-- version list -->
 
+## v2.0.0 (2025-07-29)
+
+### Bug Fixes
+
+- 🐛 release
+  ([`6e24644`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/6e24644139a940e61195db4fcff21a63b280d571))
+
+- 🐛 release.yml Invalid workflow file: .github/workflows/rel
+  ([`1483361`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/1483361933e06e447a1ff3af276f005c81e1a63c))
+
+### Breaking Changes
+
+- 🧨 PYPI RELEASE
+
+
 ## v1.0.0 (2025-07-29)
 
 ### Bug Fixes
