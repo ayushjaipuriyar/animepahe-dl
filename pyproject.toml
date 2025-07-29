@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "anime_downloader"
+name = "animepahe-dl"
 dynamic = ["version"]
 authors = [
     { name = "Ayush", email = "ayushjaipuriyar21@gmail.com" }
@@ -33,7 +33,7 @@ dependencies = [
 "Homepage" = "https://github.com/ayushjaipuriyar/animepahe-dl"
 
 [project.scripts]
-"anime-downloader" = "anime_downloader.main:main"
+"animepahe-dl" = "anime_downloader.main:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "anime_downloader.__version__"}

@@ -1,6 +1,6 @@
 # AnimePahe Downloader
 
-[![PyPI version](https://badge.fury.io/py/anime-downloader.svg)](https://badge.fury.io/py/anime-downloader)
+[![PyPI version](https://badge.fury.io/py/animepahe-dl.svg)](https://badge.fury.io/py/animepahe-dl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/ayushjaipuriyar/animepahe-dl/actions/workflows/release.yml/badge.svg)](https://github.com/ayushjaipuriyar/animepahe-dl/actions/workflows/release.yml)
 
@@ -40,7 +40,7 @@ Before installing, ensure you have the following dependencies on your system:
 Once the prerequisites are installed, you can install the downloader from PyPI:
 
 ```bash
-pip install anime-downloader
+pip install animepahe-dl
 ```
 
 ## Usage
@@ -49,14 +49,14 @@ The package can be run directly from your terminal.
 
 ### Command-Line Interface (CLI)
 
-To run the CLI, use the `anime-downloader` command:
+To run the CLI, use the `animepahe-dl` command:
 
 ```bash
 # Search for an anime and select episodes interactively
-anime-downloader -n "Your Anime Name"
+animepahe-dl -n "Your Anime Name"
 
 # Download specific episodes of an anime
-anime-downloader -n "Your Anime Name" -e 1 3 5
+animepahe-dl -n "Your Anime Name" -e 1 3 5
 ```
 
 **CLI Options:**
@@ -79,7 +79,7 @@ anime-downloader -n "Your Anime Name" -e 1 3 5
 To launch the GUI, use the `--gui` flag:
 
 ```bash
-anime-downloader --gui
+animepahe-dl --gui
 ```
 
 The GUI provides a user-friendly interface for searching, selecting, and downloading anime without using the command line.
