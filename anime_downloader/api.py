@@ -144,13 +144,13 @@ class AnimePaheAPI:
         self, anime_slug: str, episode_session: str, quality: str, audio: str
     ) -> Optional[str]:
         """
-        Gets the final stream URL for a specific episode.
+        Gets the final stream URL for a specific episode with flexible quality and audio selection.
 
         Args:
             anime_slug (str): Anime session ID.
             episode_session (str): Episode session ID.
-            quality (str): Desired quality (e.g., '720').
-            audio (str): Desired audio language (e.g., 'jpn').
+            quality (str): Desired quality (e.g., '720', '1080', 'best').
+            audio (str): Desired audio language (e.g., 'jpn', 'eng').
 
         Returns:
             Optional[str]: Direct stream URL or None.
@@ -174,17 +174,67 @@ class AnimePaheAPI:
         ]
 
         if not streams:
-            logger.warning("No streams found.")
+            logger.warning("No streams found on the page.")
             return None
 
-        quality_streams = [s for s in streams if s.get("quality") == quality]
-        final_streams = [s for s in quality_streams if s.get("audio") == audio]
+        # Log available streams for debugging
+        available_streams_str = ", ".join(
+            [f"{s['quality']}p ({s['audio']})" for s in streams if s.get("quality")]
+        )
+        logger.info(f"Available streams: {available_streams_str}")
 
-        if final_streams:
-            return final_streams[0]["url"]
+        # Convert quality to integer for sorting, handle non-numeric qualities
+        for s in streams:
+            try:
+                s["quality_val"] = int(s["quality"])
+            except (ValueError, TypeError):
+                s["quality_val"] = 0  # Assign 0 if quality is not a number
 
-        logger.warning("Could not find a matching stream.")
-        return None
+        # Sort streams by quality descending
+        streams.sort(key=lambda s: s["quality_val"], reverse=True)
+
+        # --- Audio Selection ---
+        audio_streams = [s for s in streams if s.get("audio") == audio]
+        if not audio_streams:
+            logger.warning(
+                f"Audio '{audio}' not found. Selecting from available audio languages."
+            )
+            audio_streams = streams  # Fallback to all streams
+
+        # --- Quality Selection ---
+        selected_stream = None
+        if quality == "best":
+            if audio_streams:
+                selected_stream = audio_streams[0]
+        else:
+            try:
+                target_quality = int(quality)
+                # Find best match: exact or next best available
+                for stream in audio_streams:
+                    if stream["quality_val"] <= target_quality:
+                        selected_stream = stream
+                        break
+                # If no stream is <= target, pick the best available (first in sorted list)
+                if not selected_stream and audio_streams:
+                    selected_stream = audio_streams[0]
+                    logger.warning(
+                        f"Quality '{quality}p' not found. "
+                        f"Selected next best available: {selected_stream['quality']}p."
+                    )
+            except ValueError:
+                logger.error(
+                    f"Invalid quality specified: '{quality}'. Please use 'best' or a number like '720'."
+                )
+                return None
+
+        if selected_stream:
+            logger.success(
+                f"Selected stream: {selected_stream['quality']}p ({selected_stream['audio']})"
+            )
+            return selected_stream["url"]
+        else:
+            logger.warning("Could not find any matching stream after filtering.")
+            return None
 
     def get_playlist_url(self, stream_url: str) -> Optional[str]:
         """

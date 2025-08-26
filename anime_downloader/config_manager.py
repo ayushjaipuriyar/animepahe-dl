@@ -17,7 +17,7 @@ CONFIG_FILE_PATH = os.path.join(config.BASE_DATA_DIR, "config.json")
 
 # Default configuration values for the application.
 DEFAULT_CONFIG = {
-    "quality": "1080",
+    "quality": "best",
     "audio": "jpn",
     "threads": 100,
     "download_directory": os.path.join(config.BASE_DOWNLOAD_DIR, "Anime"),
