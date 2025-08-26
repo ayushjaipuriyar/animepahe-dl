@@ -40,8 +40,8 @@ class SettingsDialog(QDialog):
 
         # --- Quality Setting ---
         self.quality_combo = QComboBox()
-        self.quality_combo.addItems(["1080", "720", "360"])
-        self.quality_combo.setCurrentText(self.config.get("quality", "720"))
+        self.quality_combo.addItems(["best", "1080", "720", "360"])
+        self.quality_combo.setCurrentText(self.config.get("quality", "best"))
         layout.addRow("Default Quality:", self.quality_combo)
 
         # --- Audio Setting ---

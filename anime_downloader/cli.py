@@ -377,8 +377,8 @@ def main():
         "-q",
         "--quality",
         type=str,
-        default=app_config.get("quality", "720"),
-        help="Desired quality (e.g., 720, 1080).",
+        default=app_config.get("quality", "best"),
+        help="Desired quality (e.g., 720, 1080, or 'best' for max resolution).",
     )
     parser.add_argument(
         "-a",
