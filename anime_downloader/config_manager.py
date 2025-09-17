@@ -17,6 +17,7 @@ CONFIG_FILE_PATH = os.path.join(config.BASE_DATA_DIR, "config.json")
 
 # Default configuration values for the application.
 DEFAULT_CONFIG = {
+    "base_url": "https://animepahe.ru",
     "quality": "best",
     "audio": "jpn",
     "threads": 100,
