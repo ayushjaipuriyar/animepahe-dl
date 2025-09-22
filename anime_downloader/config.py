@@ -27,7 +27,7 @@ ANIME_LIST_CACHE_FILE = os.path.join(BASE_DATA_DIR, "animelist.txt")
 # --- API Endpoints ---
 
 # The base URL of the AnimePahe website.
-BASE_URL = "https://animepahe.ru"
+BASE_URL = "https://animepahe.si"
 
 # The base URL for the AnimePahe API.
 API_URL = f"{BASE_URL}/api"
