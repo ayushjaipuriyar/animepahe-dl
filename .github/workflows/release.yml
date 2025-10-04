@@ -75,8 +75,18 @@ jobs:
 
       - name: Update PKGBUILD version
         run: |
-          sed -i "s#/^pkgver=.*#/pkgver=${{ needs.release.outputs.tag }}#" PKGBUILD
-          # sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          tag='${{ needs.release.outputs.tag }}'
+          # semantic-release typically prefixes with v (e.g., v1.2.3); strip it for pkgver
+          clean_tag="${tag#v}"
+          echo "Semantic-release tag: $tag -> pkgver: $clean_tag"
+          # Update pkgver line
+          sed -i "s/^pkgver=.*/pkgver=${clean_tag}/" PKGBUILD
+          # Reset pkgrel on new upstream version
+          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          # Ensure source line reflects new tag (still uses v prefix in the fetched tag URL)
+          sed -i "s#^source=.*#source=(\"git+https://github.com/ayushjaipuriyar/animepahe-dl.git#tag=v${clean_tag}\")#" PKGBUILD
+          echo 'Updated PKGBUILD:'
+          grep -E '^(pkgver|pkgrel|source)=' PKGBUILD
 
       - name: Publish AUR Package
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
