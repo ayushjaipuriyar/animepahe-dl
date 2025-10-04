@@ -79,12 +79,17 @@ jobs:
           # semantic-release typically prefixes with v (e.g., v1.2.3); strip it for pkgver
           clean_tag="${tag#v}"
           echo "Semantic-release tag: $tag -> pkgver: $clean_tag"
+          if [ -z "$clean_tag" ]; then
+            echo "Error: Clean tag is empty; aborting PKGBUILD update." >&2
+            exit 1
+          fi
           # Update pkgver line
           sed -i "s/^pkgver=.*/pkgver=${clean_tag}/" PKGBUILD
           # Reset pkgrel on new upstream version
           sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
           # Ensure source line reflects new tag (still uses v prefix in the fetched tag URL)
-          sed -i "s#^source=.*#source=(\"git+https://github.com/ayushjaipuriyar/animepahe-dl.git#tag=v${clean_tag}\")#" PKGBUILD
+          # Use '|' as sed delimiter to avoid conflict with '#' in replacement (git source fragment '#tag=')
+          sed -i "s|^source=.*|source=(\"git+https://github.com/ayushjaipuriyar/animepahe-dl.git#tag=v${clean_tag}\")|" PKGBUILD
           echo 'Updated PKGBUILD:'
           grep -E '^(pkgver|pkgrel|source)=' PKGBUILD
 
