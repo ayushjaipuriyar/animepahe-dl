@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.2.1 (2025-10-04)
+
+### Bug Fixes
+
+- Fix the aur package
+  ([`cf46518`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/cf46518dc5aae3460cd9f388a689cbfa4b83c942))
+
+
 ## v5.2.0 (2025-10-04)
 
 ### Features
