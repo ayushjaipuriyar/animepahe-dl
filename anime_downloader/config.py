@@ -3,11 +3,14 @@ Configuration constants for the AnimePahe downloader.
 
 This module defines static configuration values, such as API endpoints,
 file paths, and downloader settings.
+
+It supports dynamic loading of URL settings from the user's config file.
 """
 
 import os
 import secrets
 from platformdirs import user_config_dir, user_videos_dir
+from typing import Dict, Any
 
 # --- File and Directory Paths ---
 
@@ -23,26 +26,55 @@ MY_ANIME_LIST_FILE = os.path.join(BASE_DATA_DIR, "myanimelist.txt")
 # Path to the file that caches the full list of anime from AnimePahe.
 ANIME_LIST_CACHE_FILE = os.path.join(BASE_DATA_DIR, "animelist.txt")
 
-
-# --- API Endpoints ---
+# --- Runtime Configuration ---
 
 # The base URL of the AnimePahe website (can be overridden by user config).
 BASE_URL = "https://animepahe.com"
 
-# The base URL for the AnimePahe API.
-API_URL = f"{BASE_URL}/api"
 
-# API endpoint for searching for anime.
-SEARCH_URL = f"{API_URL}?m=search"
+def load_config_from_dict(config_data: Dict[str, Any]):
+    """
+    Loads dynamic configuration values from a dictionary.
+    This should be called at application startup.
+    """
+    global _runtime_config
+    _runtime_config = config_data
 
-# API endpoint for fetching episode release information.
-RELEASE_URL = f"{API_URL}?m=release"
 
-# Base URL for the episode playback page.
-PLAY_URL = f"{BASE_URL}/play"
+# --- API Endpoints & Dynamic Attributes ---
 
-# API endpoint for fetching currently airing anime.
-AIRING_URL = f"{API_URL}?m=airing"
+def __getattr__(name: str) -> Any:
+    """
+    Provides module-level dynamic attributes.
+
+    This allows API endpoints to be constructed dynamically based on the
+    `base_url` loaded from the user's configuration.
+    """
+    if name == "BASE_URL":
+        return _runtime_config.get("base_url", _FALLBACK_BASE_URL)
+
+    if name == "API_URL":
+        return f"{__getattr__('BASE_URL')}/api"
+
+    if name == "SEARCH_URL":
+        return f"{__getattr__('API_URL')}?m=search"
+
+    if name == "RELEASE_URL":
+        return f"{__getattr__('API_URL')}?m=release"
+
+    if name == "PLAY_URL":
+        return f"{__getattr__('BASE_URL')}/play"
+
+    if name == "AIRING_URL":
+        return f"{__getattr__('API_URL')}?m=airing"
+
+    if name == "HTTP_HEADERS":
+        return {
+            "Referer": __getattr__('BASE_URL'),
+            "Cookie": f"__ddg2_={secrets.token_hex(8)}",
+        }
+
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
 # --- Downloader Settings ---
