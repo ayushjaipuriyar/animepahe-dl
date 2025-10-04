@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.2.0 (2025-10-04)
+
+### Features
+
+- M3u8 saving
+  ([`04b572b`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/04b572b852a082823accb13f68d0428e291e5a6f))
+
+
 ## v5.1.5 (2025-07-29)
 
 ### Bug Fixes
