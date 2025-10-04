@@ -26,8 +26,8 @@ ANIME_LIST_CACHE_FILE = os.path.join(BASE_DATA_DIR, "animelist.txt")
 
 # --- API Endpoints ---
 
-# The base URL of the AnimePahe website.
-BASE_URL = "https://animepahe.ru"
+# The base URL of the AnimePahe website (can be overridden by user config).
+BASE_URL = "https://animepahe.com"
 
 # The base URL for the AnimePahe API.
 API_URL = f"{BASE_URL}/api"
@@ -56,6 +56,26 @@ BACKOFF_FACTOR = 2
 # Default HTTP headers to use for all requests to AnimePahe.
 # A random cookie is generated to mimic a unique user session.
 HTTP_HEADERS = {"Referer": BASE_URL, "Cookie": f"__ddg2_={secrets.token_hex(8)}"}
+
+
+def set_base_url(new_base: str):
+    """Update all derived endpoint constants and headers after changing base_url.
+
+    Args:
+            new_base: New root URL (scheme + host) e.g. https://example.com
+    """
+    global BASE_URL, API_URL, SEARCH_URL, RELEASE_URL, PLAY_URL, AIRING_URL, HTTP_HEADERS
+    if not new_base or not new_base.startswith("http"):
+        return
+    # Normalize (remove trailing slash)
+    BASE_URL = new_base.rstrip("/")
+    API_URL = f"{BASE_URL}/api"
+    SEARCH_URL = f"{API_URL}?m=search"
+    RELEASE_URL = f"{API_URL}?m=release"
+    PLAY_URL = f"{BASE_URL}/play"
+    AIRING_URL = f"{API_URL}?m=airing"
+    HTTP_HEADERS = {"Referer": BASE_URL, "Cookie": f"__ddg2_={secrets.token_hex(8)}"}
+
 
 # --- Update Checker ---
 

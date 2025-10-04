@@ -14,6 +14,7 @@ import os
 import re
 import shutil
 import subprocess
+import shutil as _shutil
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional, Callable
@@ -278,9 +279,16 @@ class Downloader:
                     segment_name = os.path.basename(urlparse(segment_url).path)
                     f_out.write(f"file '{segment_name}'\n")
 
-        # ffmpeg command to concatenate segments without re-encoding
+        # Resolve ffmpeg binary path (allow override via FFmpeg environment variable)
+        ffmpeg_bin = os.environ.get("FFMPEG") or _shutil.which("ffmpeg")
+        if not ffmpeg_bin:
+            logger.error(
+                "ffmpeg not found in PATH and FFMPEG env var not set. Cannot compile video."
+            )
+            return False
+
         cmd = [
-            "ffmpeg",
+            ffmpeg_bin,
             "-y",
             "-f",
             "concat",

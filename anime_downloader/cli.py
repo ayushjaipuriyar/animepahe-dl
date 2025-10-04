@@ -92,7 +92,9 @@ def check_dependencies():
         sys.exit(1)
 
 
-def choose_anime(api: AnimePaheAPI, query: str) -> Optional[Dict[str, str]]:
+def choose_anime(
+    api: AnimePaheAPI, query: str, last_cache_count: Optional[int] = None
+) -> Optional[Dict[str, str]]:
     """
     Prompts the user to select an anime from a list of search results using fzf.
 
@@ -106,7 +108,24 @@ def choose_anime(api: AnimePaheAPI, query: str) -> Optional[Dict[str, str]]:
     """
     results = api.search(query)
     if not results:
-        logger.warning("No anime found for your query.")
+        if not query:
+            # Distinguish empty cache vs query miss
+            if last_cache_count == -1:
+                logger.error(
+                    "Anime cache update failed (network). Try adjusting base_url or checking connectivity."
+                )
+            elif last_cache_count == 0:
+                logger.error(
+                    "Anime cache is empty after update. The site structure may have changed or the base_url is incorrect.\n"
+                    f"Current base_url: {config.BASE_URL}\n"
+                    "Suggestions: 1) Verify base_url with --set-base-url if supported / config.json 'base_url'. 2) Retry later."
+                )
+            else:
+                logger.warning(
+                    "Anime list cache appears empty. Run again with a query or update cache."
+                )
+        else:
+            logger.warning("No anime found for your query.")
         return None
 
     fzf = FzfPrompt()
@@ -135,14 +154,14 @@ def parse_episode_selection(selection_str: str, max_episode: int) -> List[int]:
         A sorted list of unique, valid episode numbers.
     """
     selected_numbers = set()
-    parts = selection_str.split(',')
+    parts = selection_str.split(",")
     for part in parts:
         part = part.strip()
         if not part:
             continue
-        if '-' in part:
+        if "-" in part:
             try:
-                start_str, end_str = part.split('-')
+                start_str, end_str = part.split("-")
                 start = int(start_str.strip())
                 end = int(end_str.strip())
                 if start > end:
@@ -189,7 +208,9 @@ def select_episodes(anime: Anime) -> List[int]:
 
     logger.info(f"Episodes available: {min_ep}-{max_ep}")
     if downloaded_eps:
-        logger.info(f"Already downloaded: {', '.join(map(str, sorted(list(downloaded_eps))))}")
+        logger.info(
+            f"Already downloaded: {', '.join(map(str, sorted(list(downloaded_eps))))}"
+        )
 
     selection_str = questionary.text(
         "Enter episodes to download (e.g., 1, 3, 5-10):",
@@ -239,18 +260,26 @@ def download_single_episode(
         logger.error(f"Could not get playlist link for episode {ep_num}.")
         return
 
-    # 3. Download the playlist and video segments
+    # 3. Download the playlist (always required)
     episode_dir = get_episode_dir(anime_name, ep_num, download_dir)
     playlist_path = downloader.fetch_playlist(playlist_url, episode_dir)
     if not playlist_path:
         return  # Error message is logged in the downloader
+
+    if getattr(args, "m3u8_only", False):
+        logger.success(
+            f"Saved playlist only for Episode {ep_num} at {playlist_path} (m3u8-only mode)."
+        )
+        return
 
     # 4. Download segments from the playlist
     if downloader.download_from_playlist_cli(playlist_path, args.threads):
         # 5. Compile the downloaded segments into a single video file
         output_path = get_video_path(anime_name, ep_num, download_dir)
         # For CLI, we can create a simple tqdm progress bar for compilation
-        with tqdm(total=100, desc=f"Compiling Ep. {ep_num}", unit="%", leave=False) as pbar:
+        with tqdm(
+            total=100, desc=f"Compiling Ep. {ep_num}", unit="%", leave=False
+        ) as pbar:
 
             def update_pbar(percent):
                 pbar.n = int(percent)
@@ -355,8 +384,10 @@ def main():
     """Main function to handle command-line arguments and orchestrate the download process."""
     # Ensure all external dependencies are met before starting
     check_dependencies()
-    # Load user configuration from file
+    # Load user configuration from file and apply base_url override early
     app_config = config_manager.load_config()
+    if "base_url" in app_config and app_config["base_url"] != config.BASE_URL:
+        config.set_base_url(app_config["base_url"])
 
     # --- Argument Parsing ---
     parser = argparse.ArgumentParser(
@@ -409,19 +440,40 @@ def main():
     parser.add_argument(
         "--manage", action="store_true", help="Manage your personal anime list."
     )
+    # Determine SSL verification preference
+    # (Argument parsed below; temporarily store to apply after parse.)
     parser.add_argument(
         "--run-once",
         action="store_true",
         help="Run update check once and exit (for cron jobs).",
     )
+    parser.add_argument(
+        "--insecure",
+        action="store_true",
+        help="Disable SSL certificate verification (INSECURE: use only if certificates are broken).",
+    )
+    parser.add_argument(
+        "--m3u8-only",
+        action="store_true",
+        help="Fetch and save the episode m3u8 playlist only; skip segment download and compilation.",
+    )
 
     args = parser.parse_args()
-    api = AnimePaheAPI()
+    # Force insecure SSL always
+    api = AnimePaheAPI(verify_ssl=False)
     downloader = Downloader(api)
 
     # --- Auto-update Cache ---
-    api.download_anime_list_cache()
-    logger.info("Cache update complete.")
+    cache_count = api.download_anime_list_cache()
+
+    if cache_count == -1:
+        logger.warning("Cache update failed; proceeding with existing cache (if any).")
+    else:
+        logger.info(f"Cache update complete. Entries: {cache_count}")
+        if cache_count == 0:
+            logger.error(
+                "Cache file written but contains zero entries. Base URL may be wrong or site layout changed."
+            )
 
     # --- Mode Selection ---
     if args.updates:
@@ -439,7 +491,7 @@ def main():
     else:
         # --- Default Mode: Search and Download ---
         # 1. Search for an anime
-        selected_anime = choose_anime(api, args.name)
+        selected_anime = choose_anime(api, args.name, cache_count)
         if not selected_anime:
             return
 

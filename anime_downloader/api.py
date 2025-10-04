@@ -10,11 +10,14 @@ import time
 from typing import Any, Dict, List, Optional
 
 import urllib3
+import ssl
+from urllib3.exceptions import InsecureRequestWarning
+import warnings
 from bs4 import BeautifulSoup
 
 from . import config
 from .models import Anime, Episode
-from .logger import logger
+from .logger import logger  # type: ignore
 
 
 class AnimePaheAPI:
@@ -24,11 +27,29 @@ class AnimePaheAPI:
     getting stream URLs, and managing the local cache.
     """
 
-    def __init__(self):
-        """Initializes the API with an HTTP client."""
-        self.http = urllib3.PoolManager(10, headers=config.HTTP_HEADERS)
+    def __init__(self, verify_ssl: bool = True):  # verify_ssl kept for compatibility
+        """Initializes the API with an HTTP client (forced insecure)."""
+        self.verify_ssl = False  # Force insecure
+        self._insecure_fallback_used = True
+        self.http = self._build_pool(False)
+        # Suppress urllib3 insecure request warnings since user explicitly forced insecure mode
+        warnings.simplefilter("ignore", InsecureRequestWarning)
 
-    def _request(self, url: str) -> Optional[urllib3.HTTPResponse]:
+    def _build_pool(self, verify: bool):
+        if verify:
+            return urllib3.PoolManager(
+                10, headers=config.HTTP_HEADERS, cert_reqs="CERT_REQUIRED"
+            )
+        else:
+            return urllib3.PoolManager(
+                10,
+                headers=config.HTTP_HEADERS,
+                cert_reqs="CERT_NONE",
+                assert_hostname=False,
+            )
+
+    # Return type annotated as Any to accommodate urllib3's BaseHTTPResponse hierarchy without strict mismatch
+    def _request(self, url: str) -> Optional[Any]:
         """
         Makes a GET request with retries and exponential backoff.
 
@@ -36,7 +57,7 @@ class AnimePaheAPI:
             url (str): The URL to request.
 
         Returns:
-            Optional[urllib3.HTTPResponse]: Response object or None.
+            Optional[Any]: Response object or None.
         """
         for attempt in range(config.MAX_RETRIES):
             try:
@@ -46,16 +67,39 @@ class AnimePaheAPI:
                 if response.status == 200:
                     return response
                 else:
+                    logger.warning(f"Received status code {response.status} for {url}.")
+            except urllib3.exceptions.SSLError as e:
+                # Certificate verification failure handling / optional insecure fallback
+                msg = str(e)
+                if "CERTIFICATE_VERIFY_FAILED" in msg and self.verify_ssl:
                     logger.warning(
-                        f"Received status code {response.status} for {url}."
+                        "SSL certificate verification failed. You can retry with --insecure (CLI) or set 'allow_insecure_ssl': true in config.json (NOT RECOMMENDED)."
                     )
+                    # One-time automatic fallback if user already opted in via config
+                    try:
+                        from . import config_manager
+
+                        cfg = config_manager.load_config()
+                        if (
+                            cfg.get("allow_insecure_ssl")
+                            and not self._insecure_fallback_used
+                        ):
+                            logger.warning(
+                                "Attempting insecure (certificate verification disabled) retry. Traffic may be intercepted."
+                            )
+                            self.http = self._build_pool(False)
+                            self._insecure_fallback_used = True
+                            # Do not count this attempt; retry immediately
+                            continue
+                    except Exception:
+                        pass
+                logger.warning(f"A network error occurred: {e}")
             except (
                 urllib3.exceptions.MaxRetryError,
                 urllib3.exceptions.HTTPError,
                 urllib3.exceptions.TimeoutError,
                 urllib3.exceptions.InvalidHeader,
                 urllib3.exceptions.ProxyError,
-                urllib3.exceptions.SSLError,
             ) as e:
                 logger.warning(f"A network error occurred: {e}")
             except Exception as e:
@@ -164,14 +208,16 @@ class AnimePaheAPI:
         soup = BeautifulSoup(response.data, "html.parser")
         buttons = soup.find_all("button", attrs={"data-src": True, "data-av1": "0"})
 
-        streams = [
-            {
-                "quality": b.get("data-resolution"),
-                "audio": b.get("data-audio"),
-                "url": b.get("data-src"),
-            }
-            for b in buttons
-        ]
+        # Extract only the primitive values we need into plain Python dicts
+        streams: List[Dict[str, Any]] = []
+        for b in buttons:
+            streams.append(
+                {
+                    "quality": b.get("data-resolution") or "0",
+                    "audio": b.get("data-audio") or None,
+                    "url": b.get("data-src") or None,
+                }
+            )
 
         if not streams:
             logger.warning("No streams found on the page.")
@@ -185,13 +231,14 @@ class AnimePaheAPI:
 
         # Convert quality to integer for sorting, handle non-numeric qualities
         for s in streams:
+            q_raw = s.get("quality")
             try:
-                s["quality_val"] = int(s["quality"])
+                s["quality_val"] = int(q_raw) if q_raw is not None else 0
             except (ValueError, TypeError):
-                s["quality_val"] = 0  # Assign 0 if quality is not a number
+                s["quality_val"] = 0
 
         # Sort streams by quality descending
-        streams.sort(key=lambda s: s["quality_val"], reverse=True)
+        streams.sort(key=lambda s: int(s.get("quality_val", 0)), reverse=True)
 
         # --- Audio Selection ---
         audio_streams = [s for s in streams if s.get("audio") == audio]
@@ -211,7 +258,7 @@ class AnimePaheAPI:
                 target_quality = int(quality)
                 # Find best match: exact or next best available
                 for stream in audio_streams:
-                    if stream["quality_val"] <= target_quality:
+                    if int(stream.get("quality_val", 0)) <= target_quality:
                         selected_stream = stream
                         break
                 # If no stream is <= target, pick the best available (first in sorted list)
@@ -231,7 +278,7 @@ class AnimePaheAPI:
             logger.success(
                 f"Selected stream: {selected_stream['quality']}p ({selected_stream['audio']})"
             )
-            return selected_stream["url"]
+            return selected_stream.get("url")  # type: ignore[return-value]
         else:
             logger.warning("Could not find any matching stream after filtering.")
             return None
@@ -252,11 +299,13 @@ class AnimePaheAPI:
             return None
 
         soup = BeautifulSoup(response.data, "html.parser")
-        scripts = soup.find_all("script", string=True)
+        # Find all script tags and inspect their string content
+        scripts = soup.find_all("script")
         for script in scripts:
-            if "eval(" in script.string:
+            script_text = script.string or ""
+            if "eval(" in script_text:
                 modified_script = (
-                    script.string.replace("document", "process")
+                    script_text.replace("document", "process")
                     .replace("querySelector", "exit")
                     .replace("eval(", "console.log(")
                 )
@@ -270,17 +319,19 @@ class AnimePaheAPI:
                     match = re.search(r"const source='(.*?).m3u8", p.stdout)
                     if match:
                         return match.group(1) + ".m3u8"
-                    else:
-                        logger.error("No m3u8 source found in script output.")
                 except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
                     logger.error(f"Could not evaluate script to get playlist link: {e}")
                     return None
         logger.error("Could not find or evaluate the script to get the playlist link.")
         return None
 
-    def download_anime_list_cache(self):
-        """
-        Downloads and caches the full list of anime from AnimePahe.
+    def download_anime_list_cache(self) -> int:
+        """Download and cache the full list of anime.
+
+        Returns:
+            int: Number of entries written to the cache file.
+                 -1 indicates a download/network failure (existing cache left untouched).
+                 0 indicates the request succeeded but no entries were parsed (likely site layout change or empty response).
         """
         logger.info("Updating anime list cache...")
         response = self._request(f"{config.BASE_URL}/anime/")
@@ -288,17 +339,32 @@ class AnimePaheAPI:
             logger.warning(
                 "Failed to download anime list. Using existing cache if available."
             )
-            return
+            return -1
 
         soup = BeautifulSoup(response.data, "html.parser")
         div_container = soup.find_all("div", {"class": "tab-content"})
-        with open(config.ANIME_LIST_CACHE_FILE, "w", encoding="utf-8") as f:
-            for tag in div_container:
-                for a_tag in tag.find_all("a"):
-                    uuid = a_tag.attrs["href"].split("/")[-1]
-                    name = a_tag.text.strip()
-                    f.write(f"{uuid}::::{name}\n")
-        logger.info("Anime list cache updated.")
+        count = 0
+        try:
+            with open(config.ANIME_LIST_CACHE_FILE, "w", encoding="utf-8") as f:
+                for tag in div_container:
+                    for a_tag in tag.find_all("a"):
+                        href = a_tag.get("href") or ""
+                        if not href:
+                            continue
+                        href_str = str(href)
+                        uuid = href_str.split("/")[-1]
+                        name = a_tag.text.strip()
+                        # Skip obviously empty lines
+                        if not uuid or not name:
+                            continue
+                        f.write(f"{uuid}::::{name}\n")
+                        count += 1
+        except OSError as e:
+            logger.error(f"Failed writing cache file: {e}")
+            return -1
+
+        logger.debug(f"Parsed {count} entries from anime list page.")
+        return count
 
     def check_for_updates(self) -> List[Dict[str, Any]]:
         """

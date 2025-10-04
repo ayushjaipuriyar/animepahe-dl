@@ -9,6 +9,7 @@ command-line arguments provided.
 
 import sys
 import argparse
+from . import config, config_manager
 from .logger import logger
 
 
@@ -28,6 +29,14 @@ def main():
 
     # `parse_known_args` separates the --gui flag from the rest of the arguments.
     pre_args, remaining_args = pre_parser.parse_known_args()
+
+    # Load user config early, apply base_url if overridden
+    try:
+        user_cfg = config_manager.load_config()
+        if "base_url" in user_cfg and user_cfg["base_url"] != config.BASE_URL:
+            config.set_base_url(user_cfg["base_url"])
+    except Exception as e:
+        logger.warning(f"Failed to load config early: {e}")
 
     if pre_args.gui:
         logger.info("Launching GUI...")

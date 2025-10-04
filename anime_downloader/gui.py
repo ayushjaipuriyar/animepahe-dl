@@ -8,10 +8,27 @@ network operations and downloads.
 
 import sys
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLineEdit, QPushButton, QListWidget, QTableWidget, QProgressBar,
-    QStatusBar, QLabel, QHeaderView, QDialog, QFormLayout, QSpinBox,
-    QComboBox, QDialogButtonBox, QListWidgetItem, QTableWidgetItem, QMessageBox
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QListWidget,
+    QTableWidget,
+    QProgressBar,
+    QStatusBar,
+    QLabel,
+    QHeaderView,
+    QDialog,
+    QFormLayout,
+    QSpinBox,
+    QComboBox,
+    QDialogButtonBox,
+    QListWidgetItem,
+    QTableWidgetItem,
+    QMessageBox,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
@@ -30,6 +47,7 @@ class SettingsDialog(QDialog):
     This dialog allows the user to set the default download quality, audio language,
     number of download threads, and the download directory.
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Settings")
@@ -61,7 +79,9 @@ class SettingsDialog(QDialog):
         layout.addRow("Download Directory:", self.download_dir_edit)
 
         # --- Dialog Buttons ---
-        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         layout.addRow(self.buttons)
@@ -83,20 +103,34 @@ class MainWindow(QMainWindow):
     This class sets up the UI layout and connects all the signals and slots
     to handle user interaction and background worker threads.
     """
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("AnimePahe Downloader")
         self.setGeometry(100, 100, 800, 600)
-        
+
         # --- Initialize Core Components ---
-        self.api = AnimePaheAPI()
+        # Apply base_url override early (same behavior as CLI)
+        app_cfg = config_manager.load_config()
+        if app_cfg.get("base_url") and app_cfg.get("base_url") != config.BASE_URL:
+            try:
+                config.set_base_url(app_cfg["base_url"])
+            except Exception:
+                pass  # Fail silently; will surface in cache update if invalid
+
+        # Build API client (forced insecure SSL per user request)
+        self.api = AnimePaheAPI(verify_ssl=False)
         self.downloader = Downloader(self.api)
         self.current_anime = None
         self.local_anime_list = []
-        self.worker = None # To hold a reference to the running worker
+        self.worker = None  # To hold a reference to the running worker
+        self.last_cache_count = None
 
         self._setup_ui()
         self.load_local_anime_list()
+        # Auto-update cache if empty on launch
+        if not self.local_anime_list:
+            self.start_cache_update()
 
     def _setup_ui(self):
         """Initializes all UI elements and layouts."""
@@ -158,9 +192,11 @@ class MainWindow(QMainWindow):
                     slug, title = line.strip().split("::::", 1)
                     self.local_anime_list.append({"title": title, "session": slug})
         except FileNotFoundError:
-            self.status_bar.showMessage("Anime cache not found. Click 'Update Cache' to download it.")
-        
-        self.local_anime_list.sort(key=lambda x: x['title'])
+            self.status_bar.showMessage(
+                "Anime cache not found. Click 'Update Cache' to download it."
+            )
+
+        self.local_anime_list.sort(key=lambda x: x["title"])
         self.filter_anime_list()
 
     def filter_anime_list(self):
@@ -175,26 +211,51 @@ class MainWindow(QMainWindow):
                 self.results_list.addItem(item)
 
     def start_cache_update(self):
-        """Initiates a background worker to update the anime list cache."""
+        """Start async cache update (UI disabled during run)."""
+        if self.worker and self.worker.isRunning():
+            return
         self.update_cache_button.setEnabled(False)
         self.status_bar.showMessage("Updating anime list cache from server...")
         self.worker = UpdateCacheWorker(self.api)
         self.worker.finished.connect(self.on_cache_update_finished)
         self.worker.start()
 
-    def on_cache_update_finished(self, success: bool):
-        """
-        Handles the completion of the cache update worker.
+    def on_cache_update_finished(self, count: int):
+        """Handle completion of cache update.
 
         Args:
-            success: True if the cache was updated successfully, False otherwise.
+            count: Entry count (>0 success, 0 empty parse, -1 failure)
         """
-        if success:
-            self.status_bar.showMessage("Anime list cache updated successfully.", 5000)
+        self.last_cache_count = count
+        if count > 0:
+            self.status_bar.showMessage(f"Cache updated: {count} entries.", 5000)
             self.load_local_anime_list()
-        else:
-            self.status_bar.showMessage("Failed to update anime list cache.", 5000)
-            QMessageBox.warning(self, "Error", "Could not update the anime list from the server.")
+        elif count == 0:
+            self.status_bar.showMessage("Cache updated but zero entries parsed.", 7000)
+            QMessageBox.warning(
+                self,
+                "Empty Cache",
+                (
+                    "The cache update completed but no entries were found.\n"
+                    f"Base URL: {config.BASE_URL}\n"
+                    "Possible causes:\n"
+                    " - Site layout changed\n - Incorrect base URL\n - Temporary server issue\n\n"
+                    "Try updating the base URL in settings (config.json) or retry later."
+                ),
+            )
+        else:  # -1
+            self.status_bar.showMessage(
+                "Cache update failed (network or write error).", 7000
+            )
+            QMessageBox.warning(
+                self,
+                "Cache Update Failed",
+                (
+                    "Could not download the anime list.\n"
+                    f"Base URL: {config.BASE_URL}\n"
+                    "Check your internet connection or adjust the base URL, then retry."
+                ),
+            )
         self.update_cache_button.setEnabled(True)
 
     def on_anime_selected(self, item: QListWidgetItem):
@@ -228,24 +289,34 @@ class MainWindow(QMainWindow):
         self.episode_table.setRowCount(len(anime.episodes))
         for i, episode in enumerate(anime.episodes):
             # Column 0: Episode Number
-            self.episode_table.setItem(i, 0, QTableWidgetItem(f"Episode {episode.number}"))
-            
+            self.episode_table.setItem(
+                i, 0, QTableWidgetItem(f"Episode {episode.number}")
+            )
+
             # Column 1: Download Status
             status = "Downloaded" if episode.is_downloaded else "Not Downloaded"
             self.episode_table.setItem(i, 1, QTableWidgetItem(status))
-            
+
             # Column 2: Download Checkbox
             checkbox = QTableWidgetItem()
-            checkbox.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+            checkbox.setFlags(
+                Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
+            )
             # Uncheck downloaded episodes by default
-            check_state = Qt.CheckState.Unchecked if episode.is_downloaded else Qt.CheckState.Unchecked
+            check_state = (
+                Qt.CheckState.Unchecked
+                if episode.is_downloaded
+                else Qt.CheckState.Unchecked
+            )
             checkbox.setCheckState(check_state)
             # Disable checkbox for already downloaded episodes
             if episode.is_downloaded:
                 checkbox.setFlags(checkbox.flags() & ~Qt.ItemFlag.ItemIsEnabled)
             self.episode_table.setItem(i, 2, checkbox)
 
-        self.status_bar.showMessage(f"Loaded {len(anime.episodes)} episodes for {anime.name}.")
+        self.status_bar.showMessage(
+            f"Loaded {len(anime.episodes)} episodes for {anime.name}."
+        )
 
     def start_download(self):
         """
@@ -271,8 +342,11 @@ class MainWindow(QMainWindow):
 
         self.download_button.setEnabled(False)
         self.worker = DownloadWorker(
-            self.api, self.downloader, self.current_anime, 
-            selected_episodes, config_manager.load_config()
+            self.api,
+            self.downloader,
+            self.current_anime,
+            selected_episodes,
+            config_manager.load_config(),
         )
         self.worker.progress_update.connect(self.update_progress)
         self.worker.finished.connect(self.on_download_finished)
