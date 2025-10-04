@@ -17,12 +17,13 @@ CONFIG_FILE_PATH = os.path.join(config.BASE_DATA_DIR, "config.json")
 
 # Default configuration values for the application.
 DEFAULT_CONFIG = {
-    "base_url": "https://animepahe.ru",
+    "base_url": config.BASE_URL,  # Allow overriding mirror/domain
     "quality": "best",
     "audio": "jpn",
     "threads": 100,
     "download_directory": os.path.join(config.BASE_DOWNLOAD_DIR, "Anime"),
     "update_interval_hours": 5,
+    "allow_insecure_ssl": True,  # Forced disabled certificate verification per user request
 }
 
 
