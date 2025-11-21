@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.4.0 (2025-11-21)
+
+### Features
+
+- Comprehensive project improvements with UV migration
+  ([`e2aabf7`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/e2aabf76e8e65232e3463347963005bf04c71e2e))
+
+
 ## v5.3.0 (2025-10-04)
 
 

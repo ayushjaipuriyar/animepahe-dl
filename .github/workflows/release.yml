@@ -21,7 +21,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -34,14 +34,14 @@ jobs:
 
       - name: Install uv
         if: steps.release.outputs.released == 'true'
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
 
       - name: Build package
         if: steps.release.outputs.released == 'true'
         run: uv build
       - name: Upload | Artifacts
         if: steps.release.outputs.released == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: distribution-artifacts
           path: dist
@@ -56,10 +56,10 @@ jobs:
       id-token: write
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6
 
       - name: Download | Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: distribution-artifacts
           path: dist
