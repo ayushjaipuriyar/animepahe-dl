@@ -41,7 +41,7 @@ jobs:
         run: uv build
       - name: Upload | Artifacts
         if: steps.release.outputs.released == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: distribution-artifacts
           path: dist
