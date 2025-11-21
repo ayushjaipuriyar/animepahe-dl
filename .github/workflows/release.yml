@@ -34,7 +34,7 @@ jobs:
 
       - name: Install uv
         if: steps.release.outputs.released == 'true'
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
 
       - name: Build package
         if: steps.release.outputs.released == 'true'
