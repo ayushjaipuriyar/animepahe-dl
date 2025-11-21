@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  animepahe-dl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: animepahe-dl:latest
+    container_name: animepahe-dl
+    volumes:
+      - ./downloads:/downloads
+      - ./config:/config
+    environment:
+      - DOWNLOAD_DIR=/downloads
+      - XDG_CONFIG_HOME=/config
+    # Override command for interactive use
+    # command: -n "Anime Name" -e 1-5 -q 1080
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  # GUI version (requires X11 forwarding)
+  animepahe-dl-gui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: animepahe-dl:latest
+    container_name: animepahe-dl-gui
+    volumes:
+      - ./downloads:/downloads
+      - ./config:/config
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=${DISPLAY}
+      - DOWNLOAD_DIR=/downloads
+      - XDG_CONFIG_HOME=/config
+    command: --gui
+    network_mode: host
+    stdin_open: true
+    tty: true
+    restart: unless-stopped

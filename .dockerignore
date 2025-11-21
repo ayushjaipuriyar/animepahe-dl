@@ -1,0 +1,68 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+dist
+build
+.eggs
+*.egg
+
+# Virtual environments
+.venv
+venv
+ENV
+env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+.tox
+.nox
+
+# Documentation
+docs/_build
+
+# CI/CD
+.github
+
+# Project specific
+downloads/
+config/
+*.mp4
+*.ts
+*.m3u8
+animelist.txt
+myanimelist.txt
+cache/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.whl
+*.tar.gz

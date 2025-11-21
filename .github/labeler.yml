@@ -1,0 +1,41 @@
+# Label configuration for pull requests
+
+'documentation':
+  - '**/*.md'
+  - 'docs/**/*'
+
+'tests':
+  - 'tests/**/*'
+  - '**/*test*.py'
+
+'dependencies':
+  - 'pyproject.toml'
+  - 'Pipfile'
+  - 'requirements*.txt'
+
+'ci/cd':
+  - '.github/workflows/**'
+  - '.github/**/*.yml'
+
+'core':
+  - 'anime_downloader/api.py'
+  - 'anime_downloader/downloader.py'
+  - 'anime_downloader/models.py'
+
+'cli':
+  - 'anime_downloader/cli.py'
+  - 'anime_downloader/main.py'
+
+'gui':
+  - 'anime_downloader/gui.py'
+  - 'anime_downloader/workers.py'
+
+'configuration':
+  - 'anime_downloader/config*.py'
+  - '.github/**'
+  - 'pyproject.toml'
+
+'performance':
+  - 'anime_downloader/async_downloader.py'
+  - 'anime_downloader/performance.py'
+  - 'anime_downloader/cache.py'
