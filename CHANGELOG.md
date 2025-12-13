@@ -2,6 +2,53 @@
 
 <!-- version list -->
 
+## v5.5.0 (2025-12-13)
+
+### Chores
+
+- Add proper uv.lock file
+  ([`0c6192b`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/0c6192bed33b8645bd4f072a2db56409331389ca))
+
+- **deps**: Bump actions/checkout from 4 to 6
+  ([`d37d83c`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/d37d83c94e871d1199d214dfaa25f4915c548e99))
+
+- **deps**: Bump actions/download-artifact from 4 to 6
+  ([`2d53ff9`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/2d53ff9a7811302406b62f476fd1608ec5377d20))
+
+- **deps**: Bump actions/upload-artifact from 4 to 5
+  ([`d1b8e7e`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/d1b8e7ed6d1d642bd4564524786512a6a65037c6))
+
+- **deps**: Bump astral-sh/setup-uv from 4 to 7
+  ([`6864fd6`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/6864fd6c02161811743c99443974e4cb1f211b84))
+
+- **deps**: Bump beautifulsoup4 from 4.13.4 to 4.14.2
+  ([#15](https://github.com/ayushjaipuriyar/animepahe-dl/pull/15),
+  [`05f83f0`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/05f83f0993e2db48e7cea6c04d343ad1598314a8))
+
+- **deps**: Bump github/codeql-action from 3 to 4
+  ([#14](https://github.com/ayushjaipuriyar/animepahe-dl/pull/14),
+  [`06619ae`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/06619aeb7c72ff37881b9e767d83169f2504cb5a))
+
+- **deps**: Bump platformdirs from 4.3.8 to 4.4.0
+  ([`9e0b55c`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/9e0b55cad0c8bafdab41b2cad6e7175927238baf))
+
+- **deps**: Bump python-semantic-release from 10.2.0 to 10.5.2
+  ([#17](https://github.com/ayushjaipuriyar/animepahe-dl/pull/17),
+  [`ed38d19`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/ed38d1981c03fac052e3d84f6795d9c419f41277))
+
+- **deps**: Bump questionary from 2.1.0 to 2.1.1
+  ([`6626e70`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/6626e70710f98840e0a72e71c26b24d930e0d634))
+
+- **deps**: Bump twine from 6.1.0 to 6.2.0
+  ([#16](https://github.com/ayushjaipuriyar/animepahe-dl/pull/16),
+  [`653a30c`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/653a30cc6be8248f646c0ba257729c3951357365))
+
+### Features
+
+- Add direct streaming support with media player integration
+  ([`1c64d8a`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/1c64d8a05e8af7b39b0f80eb762915323465de0a))
+
+
 ## v6.0.0 (2025-12-13)
 
 ### Features
