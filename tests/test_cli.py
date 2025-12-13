@@ -1,6 +1,7 @@
 """Tests for CLI functionality."""
 import pytest
-from anime_downloader.cli import parse_episode_selection, get_anime_dir, get_video_path
+from unittest.mock import Mock, patch, MagicMock
+from anime_downloader.cli.commands import parse_episode_selection, get_anime_dir, get_video_path, choose_anime
 
 
 class TestEpisodeSelection:
@@ -62,3 +63,78 @@ class TestPathHelpers:
         assert "Test Anime" in path
         assert "Episode 5" in path
         assert path.endswith(".mp4")
+
+
+class TestMultiSelection:
+    """Test cases for multi-selection functionality."""
+
+    @patch('anime_downloader.cli.commands.FzfPrompt')
+    def test_choose_anime_single_selection(self, mock_fzf_class):
+        """Test single anime selection (with --single flag)."""
+        mock_api = Mock()
+        mock_api.search.return_value = [
+            {"title": "Anime 1", "session": "anime-1"},
+            {"title": "Anime 2", "session": "anime-2"},
+        ]
+        
+        mock_fzf = Mock()
+        mock_fzf.prompt.return_value = ["Anime 1"]
+        mock_fzf_class.return_value = mock_fzf
+        
+        result = choose_anime(mock_api, "test", multi=False)
+        
+        assert result is not None
+        assert len(result) == 1
+        assert result[0]["title"] == "Anime 1"
+        assert result[0]["session"] == "anime-1"
+
+    @patch('anime_downloader.cli.commands.FzfPrompt')
+    def test_choose_anime_multi_selection(self, mock_fzf_class):
+        """Test multiple anime selection (default behavior)."""
+        mock_api = Mock()
+        mock_api.search.return_value = [
+            {"title": "Anime 1", "session": "anime-1"},
+            {"title": "Anime 2", "session": "anime-2"},
+            {"title": "Anime 3", "session": "anime-3"},
+        ]
+        
+        mock_fzf = Mock()
+        mock_fzf.prompt.return_value = ["Anime 1", "Anime 3"]
+        mock_fzf_class.return_value = mock_fzf
+        
+        result = choose_anime(mock_api, "test", multi=True)
+        
+        assert result is not None
+        assert len(result) == 2
+        assert result[0]["title"] == "Anime 1"
+        assert result[1]["title"] == "Anime 3"
+        # Verify --multi flag was passed to fzf
+        mock_fzf.prompt.assert_called_once()
+        call_args = mock_fzf.prompt.call_args
+        assert "--multi" in call_args[0][1]
+
+    @patch('anime_downloader.cli.commands.FzfPrompt')
+    def test_choose_anime_no_results(self, mock_fzf_class):
+        """Test behavior when no anime are found."""
+        mock_api = Mock()
+        mock_api.search.return_value = []
+        
+        result = choose_anime(mock_api, "nonexistent", multi=True)
+        
+        assert result is None
+
+    @patch('anime_downloader.cli.commands.FzfPrompt')
+    def test_choose_anime_no_selection(self, mock_fzf_class):
+        """Test behavior when user cancels selection."""
+        mock_api = Mock()
+        mock_api.search.return_value = [
+            {"title": "Anime 1", "session": "anime-1"},
+        ]
+        
+        mock_fzf = Mock()
+        mock_fzf.prompt.return_value = []
+        mock_fzf_class.return_value = mock_fzf
+        
+        result = choose_anime(mock_api, "test", multi=True)
+        
+        assert result is None

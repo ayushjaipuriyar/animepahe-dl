@@ -1,0 +1,31 @@
+[Unit]
+Description=AnimePahe Downloader Daemon
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=animepahe
+Group=animepahe
+WorkingDirectory=/home/animepahe
+ExecStart=/usr/local/bin/animepahe-dl --daemon
+ExecStop=/bin/kill -TERM $MAINPID
+ExecReload=/bin/kill -HUP $MAINPID
+PIDFile=/home/animepahe/.config/animepahe-dl/animepahe-dl.pid
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/animepahe/.config/animepahe-dl /home/animepahe/Videos
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

@@ -2,6 +2,46 @@
 
 <!-- version list -->
 
+## v6.0.0 (2025-12-13)
+
+### Features
+
+- **Direct Streaming**: Added ability to play episodes directly using m3u8 streams without downloading
+- **Media Player Integration**: Auto-detection and support for mpv, VLC, ffplay, and mplayer
+- **GUI Streaming Support**: Added play button in GUI for direct episode streaming
+- **Desktop Notifications**: Enabled desktop notifications using plyer library for download completion and new episodes
+- **System Tray Support**: Added QSystemTrayIcon integration with context menu and background operation
+- **Daemon Mode**: Implemented continuous background monitoring with `--daemon` and `--daemon-action` flags
+- **Systemd Integration**: Added Linux service support with installation script for automatic startup
+- **Enhanced Episode Selection**: Fixed episode range filtering in interactive mode (e.g., "1", "1-5", "1,3,5")
+- **Improved CLI Arguments**: Enhanced mpv command line arguments with proper streaming headers and buffering
+- **Code Architecture Cleanup**: Removed duplicate code and unused OOP refactoring components
+
+### Bug Fixes
+
+- **Episode Model Constructor**: Fixed `Episode.__init__()` to use proper status management instead of `is_downloaded` parameter
+- **GUI Workers Import**: Fixed import errors for `get_video_path` function in GUI workers
+- **CLI Scoping Issue**: Resolved `UnboundLocalError` for `Anime` class in CLI commands
+- **Interactive Mode Filtering**: Fixed episode filtering logic to properly parse and apply user selections
+- **Media Player Launch**: Fixed mpv command line argument format and added proper error handling
+
+### Breaking Changes
+
+- **Episode Model API**: The `Episode` constructor no longer accepts `is_downloaded` parameter. Use `mark_as_downloaded()` method instead
+- **Import Structure**: Moved utility functions to proper modules. Import `get_video_path` from `anime_downloader.cli.commands` instead of `anime_downloader.cli`
+- **Removed Modules**: Eliminated duplicate services and unused OOP components:
+  - Removed `anime_downloader.services.api_service.py`
+  - Removed `anime_downloader.services.download_service.py`
+  - Removed `anime_downloader.core.base.py`, `anime_downloader.core.interfaces.py`, `anime_downloader.core.config.py`
+  - Removed entire `anime_downloader.controllers/` directory
+  - Removed unused GUI widgets: `anime_downloader.gui.widgets/`
+
+### Performance Improvements
+
+- **Reduced Code Duplication**: Eliminated redundant implementations improving maintainability
+- **Optimized Imports**: Cleaned up import structure reducing startup time
+- **Enhanced Streaming**: Added buffering and network timeout options for better streaming performance
+
 ## v5.4.0 (2025-11-21)
 
 ### Features

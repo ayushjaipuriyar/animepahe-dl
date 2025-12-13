@@ -1,6 +1,6 @@
 """Tests for data models."""
 import pytest
-from anime_downloader.models import Anime, Episode
+from anime_downloader.models import Anime, Episode, DownloadStatus
 
 
 class TestEpisode:
@@ -15,8 +15,23 @@ class TestEpisode:
 
     def test_episode_downloaded_status(self):
         """Test episode downloaded status."""
-        ep = Episode(number=1, session="test-session", is_downloaded=True)
-        assert ep.is_downloaded is True
+        import tempfile
+        import os
+        
+        ep = Episode(number=1, session="test-session")
+        assert ep.is_downloaded is False
+        
+        # Test marking as downloaded with a real file
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(b"test content")
+            tmp_path = tmp.name
+        
+        try:
+            ep.mark_as_downloaded(tmp_path)
+            assert ep.is_downloaded is True
+            assert ep.status == DownloadStatus.DOWNLOADED
+        finally:
+            os.unlink(tmp_path)
 
 
 class TestAnime:

@@ -9,8 +9,7 @@ command-line arguments provided.
 
 import sys
 import argparse
-from . import config, config_manager
-from .logger import logger
+from .utils import constants, config_manager, logger
 
 
 def main():
@@ -33,8 +32,8 @@ def main():
     # Load user config early, apply base_url if overridden
     try:
         user_cfg = config_manager.load_config()
-        if "base_url" in user_cfg and user_cfg["base_url"] != config.BASE_URL:
-            config.set_base_url(user_cfg["base_url"])
+        if "base_url" in user_cfg and user_cfg["base_url"] != constants.get_base_url():
+            constants.set_base_url(user_cfg["base_url"])
     except Exception as e:
         logger.warning(f"Failed to load config early: {e}")
 
@@ -50,7 +49,7 @@ def main():
     else:
         # If --gui is not present, import and run the CLI.
         # The CLI will handle its own full argument parsing.
-        from .cli import main as cli_main
+        from .cli import cli_main
 
         cli_main()
 

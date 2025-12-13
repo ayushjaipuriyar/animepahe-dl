@@ -1,25 +1,42 @@
 version: 2
 updates:
-  # Enable version updates for pip
+  # Python dependencies
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "ayushjaipuriyar"
-    labels:
-      - "dependencies"
-      - "python"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/London"
+    rebase-strategy: "auto"
+    open-pull-requests-limit: 5
 
-  # Enable version updates for GitHub Actions
+    groups:
+      patch-updates:
+        update-types:
+          - "patch"
+
+      minor-updates:
+        update-types:
+          - "minor"
+
+      major-updates:
+        update-types:
+          - "major"
+
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
-    reviewers:
-      - "ayushjaipuriyar"
-    labels:
-      - "dependencies"
-      - "github-actions"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/London"
+    rebase-strategy: "auto"
+    open-pull-requests-limit: 3
+
+    groups:
+      actions-patch-minor:
+        update-types:
+          - "patch"
+          - "minor"

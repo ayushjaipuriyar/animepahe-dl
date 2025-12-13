@@ -2,7 +2,7 @@
 import json
 import pytest
 from pathlib import Path
-from anime_downloader import config_manager
+from anime_downloader.utils import config_manager
 
 
 class TestConfigManager:

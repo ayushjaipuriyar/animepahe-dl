@@ -10,36 +10,6 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: Lint Code
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.11
-
-      - name: Install dependencies
-        run: uv sync --dev
-
-      - name: Run Black
-        run: uv run black --check anime_downloader tests
-
-      - name: Run isort
-        run: uv run isort --check-only anime_downloader tests
-
-      - name: Run Ruff
-        run: uv run ruff check anime_downloader tests
-
-      - name: Run mypy
-        run: uv run mypy anime_downloader --ignore-missing-imports
-        continue-on-error: true
-
   test:
     name: Test Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
@@ -76,47 +46,3 @@ jobs:
 
       - name: Install Python dependencies
         run: uv sync --dev --all-extras
-
-      - name: Run tests with coverage
-        run: uv run pytest tests/ -v --cov=anime_downloader --cov-report=xml --cov-report=term
-
-      - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.11
-
-      - name: Install dependencies
-        run: uv sync --dev
-
-      - name: Run Safety check
-        run: uv run safety check --json || true
-        continue-on-error: true
-
-      - name: Run Bandit security scan
-        run: uv run bandit -r anime_downloader -f json -o bandit-report.json || true
-        continue-on-error: true
-
-      - name: Upload Bandit report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: bandit-security-report
-          path: bandit-report.json

@@ -4,8 +4,7 @@ import tempfile
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, MagicMock
-from anime_downloader.api import AnimePaheAPI
-from anime_downloader.downloader import Downloader
+from anime_downloader.api import AnimePaheAPI, Downloader
 from anime_downloader.models import Anime, Episode
 
 

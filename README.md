@@ -36,6 +36,7 @@ A feature-rich, high-performance anime downloader for AnimePahe with both CLI an
 - 💾 **Smart Caching**: Reduces redundant API calls and improves response times
 - 🔄 **Resume Support**: Continue interrupted downloads seamlessly
 - 🎨 **Dual Interface**: Choose between CLI for automation or GUI for ease of use
+- ▶️ **Direct Streaming**: Play episodes instantly without downloading
 - 🔔 **Desktop Notifications**: Get notified when downloads complete
 - 🌐 **Cross-Platform**: Works on Windows, macOS, and Linux
 - 📦 **Auto-Updates**: Automatic cache updates for the latest anime releases
@@ -44,6 +45,7 @@ A feature-rich, high-performance anime downloader for AnimePahe with both CLI an
 ## Features
 
 *   **Search and Download**: Find any anime on AnimePahe and download it.
+*   **Direct Streaming**: Play episodes directly without downloading using m3u8 streams.
 *   **Batch Downloads**: Download entire series or select specific episodes.
 *   **Resume Support**: Resume interrupted downloads without starting over.
 *   **Cross-Platform**: Works on Windows, macOS, and Linux.
@@ -67,6 +69,11 @@ Before installing, ensure you have the following dependencies on your system:
     *   **Linux**: `sudo apt update && sudo apt install fzf` (or use your distro's package manager).
 *   **Node.js**: Required for an internal dependency.
     *   [Download Node.js](https://nodejs.org/en/download/) or use a package manager.
+*   **Media Player** (for streaming): Required only if you want to use the `--play` feature.
+    *   **mpv** (recommended): `sudo apt install mpv` (Linux), `brew install mpv` (macOS), or download from [mpv.io](https://mpv.io/)
+    *   **VLC**: Download from [videolan.org](https://www.videolan.org/)
+    *   **ffplay** (part of FFmpeg): Usually installed with ffmpeg
+    *   **mplayer**: Available in most package managers
 
 ### 2. Install with uv (Recommended - Fast!)
 
@@ -115,11 +122,20 @@ animepahe-dl -n "Your Anime Name" -e 1 3 5
 | `--run-once` | | Use with `--updates` to run the check once and exit. | |
 | `--insecure` | | Disable SSL certificate verification (not recommended). | |
 | `--m3u8-only` | | Fetch playlist only without downloading segments. | |
+| `--play` | | Play episode(s) directly using m3u8 stream (requires media player). | |
+| `--player` | | Specify media player to use (mpv, vlc, ffplay). Auto-detects if not specified. | |
+| `--daemon` | | Run in daemon mode (background service for continuous updates). | |
+| `--daemon-action` | | Daemon management (start, stop, restart, status). | |
+| `--single` | | Disable multi-selection mode (select only one anime at a time). | |
 | `--gui` | | Launch the Graphical User Interface. | |
 
 **Examples:**
 
 ```bash
+# Search and select anime (multi-selection is default)
+animepahe-dl -n "Naruto"
+# (Use spacebar to select multiple items, Enter to confirm)
+
 # Download episodes 1-10 with 720p quality
 animepahe-dl -n "Naruto" -e 1-10 -q 720
 
@@ -129,8 +145,17 @@ animepahe-dl -n "Naruto" -e 1-20 -c 3 -t 150
 # Download with English audio
 animepahe-dl -n "Naruto" -e 1-5 -a eng
 
+# Single selection mode (select only one anime)
+animepahe-dl -n "Naruto" --single
+
 # Fetch playlist only (no download)
 animepahe-dl -n "Naruto" -e 1 --m3u8-only
+
+# Play episodes directly without downloading
+animepahe-dl -n "Naruto" -e 1-5 --play
+
+# Play with specific media player
+animepahe-dl -n "Naruto" -e 1 --play --player mpv
 ```
 
 
@@ -144,6 +169,88 @@ animepahe-dl --gui
 
 The GUI provides a user-friendly interface for searching, selecting, and downloading anime without using the command line.
 
+**Multi-Selection in GUI:**
+- Hold `Ctrl` (or `Cmd` on macOS) to select multiple anime
+- Hold `Shift` to select a range of anime
+- Click "Download Selected" to download all episodes from selected anime
+- Click "Play Selected Episodes" to stream episodes directly (requires media player)
+
+**Keyboard Shortcuts:**
+- `Ctrl+F` - Focus search bar
+- `Ctrl+A` - Select all episodes
+- `Ctrl+D` - Deselect all episodes
+- `Ctrl+P` - Play selected episodes
+- `Enter` - Download selected episodes
+- `F5` - Update anime cache
+
+### Direct Streaming
+
+Stream episodes instantly without downloading:
+
+```bash
+# Stream episodes directly
+animepahe-dl -n "Your Anime Name" -e 1-5 --play
+
+# Use specific media player
+animepahe-dl -n "Your Anime Name" -e 1 --play --player mpv
+
+# Stream with custom quality and audio
+animepahe-dl -n "Your Anime Name" -e 1 --play -q 720 -a eng
+```
+
+**Supported Media Players:**
+- **mpv** (recommended) - Lightweight and fast
+- **VLC** - Popular cross-platform player
+- **ffplay** - Part of FFmpeg, minimal interface
+- **mplayer** - Classic media player
+
+The application will auto-detect available players or you can specify one with `--player`.
+
+### Background Monitoring & Daemon Mode
+
+Run the application as a background service to automatically monitor and download new episodes:
+
+```bash
+# Start daemon mode
+animepahe-dl --daemon
+
+# Daemon management
+animepahe-dl --daemon-action start
+animepahe-dl --daemon-action stop
+animepahe-dl --daemon-action restart
+animepahe-dl --daemon-action status
+```
+
+### System Tray Integration
+
+The GUI supports system tray functionality:
+
+- **Minimize to Tray**: Close button minimizes to system tray instead of quitting
+- **Background Monitoring**: Toggle automatic episode checking from tray menu
+- **Quick Actions**: Update cache, show/hide window, and quit from tray menu
+- **Notifications**: Get desktop notifications for new episodes and completed downloads
+
+### Linux Service Integration
+
+Install as a systemd service for automatic startup:
+
+```bash
+# Install service (run from project directory)
+./scripts/install-service.sh
+
+# Service management
+sudo systemctl start animepahe-dl
+sudo systemctl stop animepahe-dl
+sudo systemctl status animepahe-dl
+sudo journalctl -u animepahe-dl -f  # View logs
+```
+
+**Service Features:**
+- Automatic startup on boot
+- Automatic restart on failure
+- Secure execution with limited permissions
+- Centralized logging via systemd journal
+
 ## Configuration
 
 The application's configuration (`config.json`) and data files (`myanimelist.txt`, `animelist.txt`) are stored in your user data directory:
@@ -152,7 +259,20 @@ The application's configuration (`config.json`) and data files (`myanimelist.txt
 *   **macOS**: `~/Library/Application Support/anime_downloader/`
 *   **Windows**: `C:\Users\<YourUsername>\AppData\Local\anime_downloader\`
 
-You can manually edit `config.json` to change defaults for quality, audio, threads, and the download directory.
+You can manually edit `config.json` to change defaults for quality, audio, threads, download directory, and notification settings.
+
+**Configuration Options:**
+```json
+{
+  "base_url": "https://animepahe.si",
+  "quality": "best",
+  "audio": "jpn",
+  "threads": 100,
+  "download_directory": "/home/user/Videos/Anime",
+  "update_interval_hours": 1,
+  "allow_insecure_ssl": true
+}
+```
 
 ## 🛠️ For Developers
 
@@ -366,8 +486,25 @@ crontab -e
 - `XDG_CONFIG_HOME` - Config directory location
 - `DOWNLOAD_DIR` - Default download directory
 
-## 🚀 New Features in v5.2.1
+## 🚀 New Features in v6.0.0
 
+### Major Features
+- ▶️ **Direct Streaming** - Play episodes instantly without downloading using m3u8 streams
+- 🎮 **Media Player Integration** - Auto-detects mpv, VLC, ffplay, and mplayer with optimized streaming settings
+- 🖥️ **GUI Streaming** - Stream episodes directly from the graphical interface with play button
+- 🔔 **Desktop Notifications** - Get notified when downloads complete or new episodes are found
+- 🖥️ **System Tray Support** - Run in background with system tray integration and context menu
+- 🔄 **Daemon Mode** - Continuous background monitoring for new episodes with configurable intervals
+- 🐧 **Systemd Integration** - Linux service support for automatic startup and management
+
+### Improvements
+- 🎯 **Enhanced Episode Selection** - Fixed episode range filtering (e.g., "1", "1-5", "1,3,5") in interactive mode
+- 🔧 **Improved Architecture** - Cleaned up codebase by removing duplicate and unused components
+- ⚡ **Better Performance** - Optimized imports and reduced code duplication
+- 🛠️ **Enhanced CLI** - Improved mpv integration with proper streaming headers and buffering
+- 📱 **Better GUI** - Fixed import errors and improved episode status tracking
+
+### Previous Features
 - ⚡ **Async Downloads** - 2-3x faster with async/await
 - 💾 **Smart Caching** - 50% reduction in API calls
 - 📊 **Performance Monitoring** - Track download statistics
