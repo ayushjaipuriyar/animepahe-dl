@@ -414,13 +414,11 @@ class InteractiveMode:
     
     def _update_anime_list(self):
         """Update anime list from downloaded files."""
-        console.print("[dim]This feature would scan your download directory and update the list.[/dim]")
+        console.print("[dim]Not yet implemented. This feature will scan your download directory and update the list.[/dim]")
     
     def _check_updates(self):
         """Check for new episodes."""
-        console.print("[dim]Checking for new episodes...[/dim]")
-        # This would integrate with the existing update checking logic
-        console.print("[green]No new episodes found.[/green]")
+        console.print("[dim]Not yet implemented. This feature will check for new episodes using your download directory and anime list.[/dim]")
     
     def _configure_settings(self):
         """Configure application settings."""
@@ -475,7 +473,7 @@ class InteractiveMode:
     
     def _view_history(self):
         """View download history."""
-        console.print("[dim]Download history feature would show completed downloads here.[/dim]")
+        console.print("[dim]Not yet implemented. Download history feature will show completed downloads here.[/dim]")
 
 
 def run_interactive_mode():
