@@ -148,6 +148,8 @@ class AnimePaheAPI:
     def search(self, query: str) -> List[Dict[str, str]]:
         """
         Searches for anime on AnimePahe.
+        Preferentially uses the local cache which contains the full anime list,
+        avoiding the API's pagination limits (approx 8 items).
 
         Args:
             query (str): The search query.
@@ -156,19 +158,46 @@ class AnimePaheAPI:
             List[Dict[str, str]]: List of search result dicts.
         """
         search_results = []
-        if not query:
-            try:
+        
+        # Try content from cache first
+        try:
+            if os.path.exists(constants.ANIME_LIST_CACHE_FILE):
                 with open(constants.ANIME_LIST_CACHE_FILE, "r", encoding="utf-8") as f:
                     for line in f:
-                        slug, title = line.strip().split("::::", 1)
-                        search_results.append({"session": slug, "title": title})
-                return search_results
-            except FileNotFoundError:
-                logger.warning(
-                    "Anime list cache not found. Please run with --update-cache first."
-                )
-                return []
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            slug, title = line.split("::::", 1)
+                        except ValueError:
+                            continue
 
+                        if not query or query.lower() in title.lower():
+                            search_results.append({"session": slug, "title": title})
+                
+                # If we found matches (or query was empty and we got list), return local results
+                # Only return if we actually found something. If not, maybe fallback to API?
+                # But if cache exists and we found nothing, API probably won't find it either unless cache is stale.
+                # Given API limits, cache is better source of truth.
+                if search_results:
+                    return search_results
+                
+                if not query and not search_results:
+                     # Empty cache file?
+                     return []
+
+        except Exception as e:
+            logger.warning(f"Error reading anime cache: {e}")
+
+        if not query:
+             logger.warning(
+                "Anime list cache not found or empty. Please run with --update-cache first."
+             )
+             return []
+
+        # Fallback to API if cache didn't exist or had error (or maybe no results found locally)
+        # Note: If cache existed but had 0 matches, we still fall back to API here just in case 
+        # the cache is stale and API has new show.
         response = self._request(f"{constants.SEARCH_URL}&q={query}")
         if response:
             data = json.loads(response.data)
