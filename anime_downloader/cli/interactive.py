@@ -175,7 +175,7 @@ class InteractiveMode:
         console.print(f"[green]Starting download of {total_episodes} episodes...[/green]")
         
         # Show what would be downloaded with resume detection
-        from .cli import get_video_path
+        from .commands import get_video_path
         download_dir = self.config.get("download_directory", "~/Videos")
         
         for item in self.download_queue:
