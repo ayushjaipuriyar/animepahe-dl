@@ -82,13 +82,19 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
+      - name: Set up Python
+        run: uv python install 3.11
+
       - name: Test installation from wheel
         run: |
-          uv pip install --system dist/*.whl
+          uv venv test-wheel
+          source test-wheel/bin/activate
+          uv pip install dist/*.whl
           animepahe-dl --version
 
       - name: Test installation from sdist
         run: |
-          uv pip uninstall --system animepahe-dl -y
-          uv pip install --system dist/*.tar.gz
+          uv venv test-sdist
+          source test-sdist/bin/activate
+          uv pip install dist/*.tar.gz
           animepahe-dl --version
