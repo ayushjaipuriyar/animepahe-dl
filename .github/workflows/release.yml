@@ -45,9 +45,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
 
-      - name: Install build tools
-        run: uv add --dev build
-
       - name: Python Semantic Release
         id: release
         uses: python-semantic-release/python-semantic-release@v10.5.2
