@@ -52,6 +52,23 @@ A feature-rich, high-performance anime downloader for AnimePahe with both CLI an
 *   **Desktop Notifications**: Get notified when your downloads are complete.
 *   **Automatic Cache Updates**: Keep your local anime list up-to-date automatically.
 
+## 📦 Binary Releases
+
+Pre-built binaries are available for all major platforms:
+
+### Quick Install
+
+| Platform | Method | Command |
+|----------|--------|---------|
+| **Windows** | [Download EXE](https://github.com/ayushjaipuriyar/animepahe-dl/releases/latest) | `animepahe-dl-windows.exe` |
+| **Linux** | [AppImage](https://github.com/ayushjaipuriyar/animepahe-dl/releases/latest) | `./animepahe-dl-x86_64.AppImage` |
+| **Linux** | Snap Store | `sudo snap install animepahe-dl` |
+| **Linux** | Flatpak | `flatpak install animepahe-dl.flatpak` |
+| **macOS** | Homebrew | `brew install animepahe-dl` |
+| **Arch Linux** | AUR | `yay -S animepahe-dl` |
+
+📖 **[Complete Binary Installation Guide](docs/BINARY_RELEASES.md)**
+
 ## Installation
 
 ### 1. Prerequisites

@@ -72,18 +72,41 @@ dev = [
 
 [tool.hatch.version]
 path = "anime_downloader/__init__.py"
+pattern = "__version__ = \"{version}\""
 
 [tool.hatch.build.targets.wheel]
 packages = ["anime_downloader"]
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
-branch = "main"
+version_variables = ["anime_downloader/__init__.py:__version__"]
+major_on_zero = false
+allow_zero_version = true
+tag_format = "v{version}"
 changelog_file = "CHANGELOG.md"
-build_command = "pip install build && python -m build"
+build_command = "uv build"
 dist_path = "dist/"
-upload_to_pypi = "true"
-upload_to_release = "true"
+upload_to_pypi = false
+upload_to_release = true
+commit_message = "chore(release): {version} [skip ci]"
+
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false
+
+[tool.semantic_release.branches.dev]
+match = "dev"
+prerelease = true
+prerelease_token = "dev"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "style", "refactor", "test"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]
+
+[tool.semantic_release.changelog]
+changelog_file = "CHANGELOG.md"
+exclude_commit_patterns = []
 
 [tool.black]
 line-length = 100

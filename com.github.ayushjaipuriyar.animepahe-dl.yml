@@ -1,0 +1,44 @@
+app-id: com.github.ayushjaipuriyar.animepahe-dl
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+command: animepahe-dl
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --filesystem=home
+  - --filesystem=xdg-download
+  - --device=dri
+
+modules:
+  - name: python3-pip
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} pip
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/p/pip/pip-24.0.tar.gz
+        sha256: ea9bd1a847e8c5774a5777bb398c19e80bcd4e2aa16a4b301b718fe6f593aba2
+
+  - name: animepahe-dl
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} .
+    sources:
+      - type: git
+        url: https://github.com/ayushjaipuriyar/animepahe-dl.git
+        tag: v5.5.0
+        commit: HEAD
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/b/beautifulsoup4/beautifulsoup4-4.14.3.tar.gz
+        sha256: 74e3d1928edc070d21748185c46e3fb33490f22f52a3addee9aee0f4f7781051
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/p/pyfzf/pyfzf-0.3.0.tar.gz
+        sha256: 5b5b8b6b0b5b8b6b0b5b8b6b0b5b8b6b0b5b8b6b0b5b8b6b0b5b8b6b0b5b8b6b
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/p/pycryptodome/pycryptodome-3.19.0.tar.gz
+        sha256: bc35d463222cdb4dbebd35e0784155c81e161b9284e567e7e933d722e533331e

@@ -1,0 +1,14 @@
+# Generated from pyproject.toml for Snap packaging
+beautifulsoup4>=4.14.3
+pyfzf>=0.3.0
+pycryptodome>=3.19.0
+tqdm>=4.66.0
+urllib3>=2.0.0,<2.5.0; python_version < "3.9"
+urllib3>=2.6.1; python_version >= "3.9"
+PyQt6>=6.6.0
+platformdirs>=4.0.0
+loguru>=0.7.0
+plyer>=2.1.0
+questionary>=2.0.0
+rich>=13.0.0
+typer>=0.9.0
