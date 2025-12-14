@@ -373,15 +373,16 @@ class InteractiveMode:
             return
         
         choices = [questionary.Choice(anime["title"], value=anime["title"]) for anime in results[:10]]
-        selected = questionary.select("Select anime to add:", choices=choices).ask()
+        selected = questionary.checkbox("Select anime to add:", choices=choices).ask()
         
         if selected:
             try:
                 from ..utils.constants import MY_ANIME_LIST_FILE
                 os.makedirs(os.path.dirname(MY_ANIME_LIST_FILE), exist_ok=True)
                 with open(MY_ANIME_LIST_FILE, 'a', encoding='utf-8') as f:
-                    f.write(f"{selected}\n")
-                console.print(f"[green]Added '{selected}' to your anime list![/green]")
+                    for anime in selected:
+                        f.write(f"{anime}\n")
+                console.print(f"[green]Added {len(selected)} anime to your list![/green]")
             except Exception as e:
                 console.print(f"[red]Error adding anime: {e}[/red]")
     
