@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=AnimePahe Downloader
+GenericName=Anime Downloader
+Comment=A feature-rich anime downloader with CLI and GUI support
+Exec=animepahe-dl --gui
+Icon=animepahe-dl
+Terminal=false
+Categories=Network;AudioVideo;Video;
+Keywords=anime;download;video;streaming;
+StartupNotify=true
+MimeType=x-scheme-handler/animepahe;

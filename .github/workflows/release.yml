@@ -1,17 +1,25 @@
 name: Release
 
 on:
-  workflow_run:
-    workflows: ["CI"]
+  push:
     branches: [main]
-    types: [completed]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force release even if no changes'
+        required: false
+        default: 'false'
+        type: boolean
 
 permissions:
   contents: read
 
 jobs:
   release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       released: ${{ steps.release.outputs.released }}
@@ -28,15 +36,21 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --dev
+
       - name: Python Semantic Release
         id: release
         uses: python-semantic-release/python-semantic-release@v10.5.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install uv
-        if: steps.release.outputs.released == 'true'
-        uses: astral-sh/setup-uv@v7
+          force: ${{ github.event.inputs.force == 'true' }}
 
       - name: Build package
         if: steps.release.outputs.released == 'true'
@@ -49,9 +63,233 @@ jobs:
           path: dist
           if-no-files-found: error
 
+  build-binaries:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows
+            artifact: animepahe-dl-windows.exe
+          - os: ubuntu-latest
+            target: linux
+            artifact: animepahe-dl-linux
+          - os: macos-latest
+            target: macos
+            artifact: animepahe-dl-macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Install PyInstaller
+        run: uv add --dev pyinstaller
+
+      - name: Build binary (Windows)
+        if: matrix.target == 'windows'
+        run: |
+          uv run pyinstaller animepahe-dl.spec
+          move dist/animepahe-dl.exe dist/${{ matrix.artifact }}
+
+      - name: Build binary (Linux/macOS)
+        if: matrix.target != 'windows'
+        run: |
+          uv run pyinstaller animepahe-dl.spec
+          mv dist/animepahe-dl dist/${{ matrix.artifact }}
+
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: binary-${{ matrix.target }}
+          path: dist/${{ matrix.artifact }}
+          if-no-files-found: error
+
+  build-appimage:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Install PyInstaller
+        run: uv add --dev pyinstaller
+
+      - name: Build binary
+        run: |
+          uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
+
+      - name: Create AppImage
+        run: |
+          # Download AppImage tools
+          wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          
+          # Create AppDir structure
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          
+          # Copy binary
+          cp dist/animepahe-dl AppDir/usr/bin/
+          
+          # Create desktop file
+          cat > AppDir/usr/share/applications/animepahe-dl.desktop << EOF
+          [Desktop Entry]
+          Type=Application
+          Name=AnimePahe Downloader
+          Comment=A feature-rich anime downloader
+          Exec=animepahe-dl
+          Icon=animepahe-dl
+          Categories=Network;AudioVideo;
+          Terminal=true
+          EOF
+          
+          # Create a simple icon (you can replace this with a real icon)
+          convert -size 256x256 xc:blue AppDir/usr/share/icons/hicolor/256x256/apps/animepahe-dl.png || echo "ImageMagick not available, skipping icon"
+          
+          # Create AppRun
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          exec "${HERE}/usr/bin/animepahe-dl" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          
+          # Build AppImage
+          ./appimagetool AppDir animepahe-dl-x86_64.AppImage
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: appimage
+          path: animepahe-dl-x86_64.AppImage
+          if-no-files-found: error
+
+  build-snap:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Build Snap
+        uses: snapcore/action-build@v1
+        id: build
+
+      - name: Upload Snap artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: snap
+          path: ${{ steps.build.outputs.snap }}
+          if-no-files-found: error
+
+      - name: Publish to Snap Store
+        if: github.ref == 'refs/heads/main'
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: stable
+
+  build-flatpak:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:freedesktop-23.08
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Update Flatpak manifest with new version
+        run: |
+          TAG="${{ needs.release.outputs.tag }}"
+          sed -i "s/tag: v[0-9]\+\.[0-9]\+\.[0-9]\+/tag: ${TAG}/g" com.github.ayushjaipuriyar.animepahe-dl.yml
+
+      - name: Build Flatpak
+        uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: animepahe-dl.flatpak
+          manifest-path: com.github.ayushjaipuriyar.animepahe-dl.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: flatpak
+          path: animepahe-dl.flatpak
+          if-no-files-found: error
+
+  update-homebrew:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Update Homebrew Formula
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+        run: |
+          # Calculate SHA256 of the source tarball
+          TAG="${{ needs.release.outputs.tag }}"
+          CLEAN_TAG="${TAG#v}"
+          URL="https://github.com/ayushjaipuriyar/animepahe-dl/archive/${TAG}.tar.gz"
+          SHA256=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
+          
+          # Update the formula
+          sed -i "s/v[0-9]\+\.[0-9]\+\.[0-9]\+/${TAG}/g" Formula/animepahe-dl.rb
+          sed -i "s/PLACEHOLDER_SHA256/${SHA256}/g" Formula/animepahe-dl.rb
+          
+          echo "Updated Homebrew formula for version ${CLEAN_TAG}"
+          echo "SHA256: ${SHA256}"
+
+      - name: Create Homebrew PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+          commit-message: "animepahe-dl: update to ${{ needs.release.outputs.tag }}"
+          title: "animepahe-dl: update to ${{ needs.release.outputs.tag }}"
+          body: |
+            Automated update of animepahe-dl to version ${{ needs.release.outputs.tag }}
+            
+            - Updated version to ${{ needs.release.outputs.tag }}
+            - Updated SHA256 checksum
+            
+            This PR was automatically created by the release workflow.
+          branch: update-animepahe-dl-${{ needs.release.outputs.tag }}
+          base: main
+
   deploy:
     runs-on: ubuntu-latest
-    needs: release
+    needs: [release, build-binaries, build-appimage, build-snap, build-flatpak]
     if: needs.release.outputs.released == 'true'
     permissions:
       contents: read
@@ -60,11 +298,36 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v6
 
-      - name: Download | Artifacts
+      - name: Download | Python Artifacts
         uses: actions/download-artifact@v6
         with:
           name: distribution-artifacts
           path: dist
+
+      - name: Download | Binary Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          pattern: binary-*
+          path: binaries
+          merge-multiple: true
+
+      - name: Download | AppImage Artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: appimage
+          path: binaries
+
+      - name: Download | Snap Artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: snap
+          path: binaries
+
+      - name: Download | Flatpak Artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: flatpak
+          path: binaries
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@v1.13.0
@@ -72,6 +335,16 @@ jobs:
           packages-dir: dist
           print-hash: true
           verbose: true
+
+      - name: Upload binaries to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release.outputs.tag }}
+          files: |
+            binaries/*
+            dist/*.whl
+            dist/*.tar.gz
+          fail_on_unmatched_files: false
 
       - name: Check PKGBUILD
         run: ls -lah ./PKGBUILD

@@ -1,0 +1,48 @@
+name: animepahe-dl
+base: core22
+version: git
+summary: A feature-rich anime downloader with CLI and GUI support
+description: |
+  AnimePahe Downloader is a Python application for downloading anime episodes 
+  from AnimePahe. It supports both command-line interface (CLI) and graphical 
+  user interface (GUI) modes, with features like batch downloading, resume 
+  capability, and multiple quality options.
+
+grade: stable
+confinement: strict
+
+architectures:
+  - build-on: amd64
+
+apps:
+  animepahe-dl:
+    command: bin/animepahe-dl
+    plugs:
+      - home
+      - network
+      - network-bind
+      - removable-media
+
+parts:
+  animepahe-dl:
+    plugin: python
+    source: .
+    python-requirements:
+      - requirements.txt
+    build-packages:
+      - python3-dev
+      - build-essential
+    stage-packages:
+      - python3-venv
+      - ffmpeg
+    override-build: |
+      craftctl default
+      # Install the package
+      pip install .
+      # Create wrapper script
+      mkdir -p $CRAFT_PART_INSTALL/bin
+      cat > $CRAFT_PART_INSTALL/bin/animepahe-dl << 'EOF'
+      #!/bin/bash
+      exec python3 -m anime_downloader.main "$@"
+      EOF
+      chmod +x $CRAFT_PART_INSTALL/bin/animepahe-dl
