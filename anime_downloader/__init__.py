@@ -4,7 +4,7 @@ AnimePahe Downloader
 A Python application for downloading anime episodes from AnimePahe.
 """
 
-__version__ = "5.6.0-dev.1"
+__version__ = "5.6.0-dev.2"
 
 # Main entry points
 from .main import main
