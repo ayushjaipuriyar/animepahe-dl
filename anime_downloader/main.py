@@ -49,7 +49,7 @@ def main():
     else:
         # If --gui is not present, import and run the CLI.
         # The CLI will handle its own full argument parsing.
-        from .cli import cli_main
+        from .cli.commands import main as cli_main
 
         cli_main()
 
