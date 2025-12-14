@@ -345,7 +345,7 @@ class InteractiveMode:
     def _view_anime_list(self):
         """View user's anime list."""
         try:
-            from .constants import MY_ANIME_LIST_FILE
+            from ..utils.constants import MY_ANIME_LIST_FILE
             if os.path.exists(MY_ANIME_LIST_FILE):
                 with open(MY_ANIME_LIST_FILE, 'r', encoding='utf-8') as f:
                     anime_list = [line.strip() for line in f if line.strip()]
@@ -377,7 +377,7 @@ class InteractiveMode:
         
         if selected:
             try:
-                from .constants import MY_ANIME_LIST_FILE
+                from ..utils.constants import MY_ANIME_LIST_FILE
                 os.makedirs(os.path.dirname(MY_ANIME_LIST_FILE), exist_ok=True)
                 with open(MY_ANIME_LIST_FILE, 'a', encoding='utf-8') as f:
                     f.write(f"{selected}\n")
@@ -388,7 +388,7 @@ class InteractiveMode:
     def _remove_from_anime_list(self):
         """Remove anime from user's list."""
         try:
-            from .constants import MY_ANIME_LIST_FILE
+            from ..utils.constants import MY_ANIME_LIST_FILE
             if not os.path.exists(MY_ANIME_LIST_FILE):
                 console.print("[yellow]No anime list found.[/yellow]")
                 return
