@@ -17,7 +17,7 @@ from typing import List, Dict, Any
 from ..api import AnimePaheAPI, Downloader
 from ..models import Anime, Episode
 from ..utils import config_manager
-from ..cli.commands import get_video_path
+from ..cli.commands import get_video_path, get_episode_dir
 
 
 class UpdateCacheWorker(QThread):
@@ -154,7 +154,7 @@ class DownloadWorker(QThread):
                     continue
 
                 # --- Step 2: Download Playlist and Segments ---
-                episode_dir = cli.get_episode_dir(
+                episode_dir = get_episode_dir(
                     self.anime.name,
                     episode.number,
                     self.app_config["download_directory"],
@@ -220,7 +220,7 @@ class DownloadWorker(QThread):
                     episode_dir, output_path, progress_callback
                 )
                 self.log.emit(f"Finished processing Episode {episode.number}")
-                
+
                 # Send desktop notification
                 try:
                     from plyer import notification
@@ -327,22 +327,22 @@ class MultiAnimeDownloadWorker(QThread):
         """Fetches episodes for each anime and downloads them."""
         download_dir = self.app_config["download_directory"]
         all_episodes_to_download = []
-        
+
         # Step 1: Fetch episode data for all selected anime
         self.log.emit(f"Fetching episode data for {len(self.anime_list)} anime...")
-        
+
         for anime_data in self.anime_list:
             try:
                 anime_name = anime_data["title"]
                 anime_slug = anime_data["session"]
-                
+
                 self.log.emit(f"Fetching episodes for {anime_name}...")
                 episode_data = self.api.fetch_episode_data(anime_name, anime_slug)
-                
+
                 if not episode_data:
                     self.log.emit(f"No episodes found for {anime_name}")
                     continue
-                
+
                 anime = Anime(name=anime_name, slug=anime_slug)
                 for ep_data in episode_data:
                     ep_num = int(ep_data["episode"])
@@ -355,32 +355,32 @@ class MultiAnimeDownloadWorker(QThread):
                     if os.path.exists(video_path):
                         episode.mark_as_downloaded(video_path)
                     anime.episodes.append(episode)
-                    
+
                     # Queue non-downloaded episodes
                     if not episode.is_downloaded:
                         all_episodes_to_download.append((anime, episode))
-                
+
                 self.log.emit(f"Found {len([e for e in anime.episodes if not e.is_downloaded])} episodes to download for {anime_name}")
-                
+
             except Exception as e:
                 self.log.emit(f"Error fetching episodes for {anime_data['title']}: {e}")
                 continue
-        
+
         if not all_episodes_to_download:
             self.log.emit("No new episodes to download.")
             self.finished.emit()
             return
-        
+
         # Step 2: Download all queued episodes
         total_episodes = len(all_episodes_to_download)
         self.log.emit(f"Starting download of {total_episodes} episodes...")
-        
+
         for idx, (anime, episode) in enumerate(all_episodes_to_download, 1):
             try:
                 self.log.emit(
                     f"[{idx}/{total_episodes}] Downloading {anime.name} - Episode {episode.number}..."
                 )
-                
+
                 # Get stream and playlist URLs
                 stream_url = self.api.get_stream_url(
                     anime.slug,
@@ -391,29 +391,29 @@ class MultiAnimeDownloadWorker(QThread):
                 if not stream_url:
                     self.log.emit(f"Error: Could not find stream for {anime.name} Ep {episode.number}")
                     continue
-                
+
                 playlist_url = self.api.get_playlist_url(stream_url)
                 if not playlist_url:
                     self.log.emit(f"Error: Could not get playlist for {anime.name} Ep {episode.number}")
                     continue
-                
+
                 # Download playlist and segments
                 episode_dir = cli.get_episode_dir(anime.name, episode.number, download_dir)
                 playlist_path = self.downloader.fetch_playlist(playlist_url, episode_dir)
                 if not playlist_path:
                     continue
-                
+
                 playlist_details = self.downloader.get_playlist_details(playlist_path)
                 if not playlist_details:
                     self.log.emit(f"Error: Could not parse playlist for {anime.name} Ep {episode.number}")
                     continue
-                
+
                 key_response = self.api._request(playlist_details["key_url"])
                 if not key_response:
                     self.log.emit(f"Error: Failed to get decryption key for {anime.name} Ep {episode.number}")
                     continue
                 key = key_response.data
-                
+
                 segments = playlist_details["segments"]
                 segments_to_download = [
                     s for s in segments
@@ -421,31 +421,31 @@ class MultiAnimeDownloadWorker(QThread):
                         os.path.join(episode_dir, os.path.basename(urlparse(s).path))
                     )
                 ]
-                
+
                 if segments_to_download:
                     self.log.emit(f"Downloading {len(segments_to_download)} segments...")
                     self._run_segment_downloads(
                         segments_to_download, playlist_details, key, episode_dir
                     )
-                
+
                 # Compile video
                 self.log.emit(f"Compiling {anime.name} Episode {episode.number}...")
                 output_path = get_video_path(anime.name, episode.number, download_dir)
                 self.downloader.compile_video(episode_dir, output_path, lambda p: None)
-                
+
                 self.log.emit(f"Completed {anime.name} Episode {episode.number}")
                 self.progress_update.emit(idx, total_episodes, f"Completed {idx}/{total_episodes} episodes")
-                
+
             except Exception as e:
                 self.log.emit(f"Error downloading {anime.name} Ep {episode.number}: {e}")
                 print(f"Error in MultiAnimeDownloadWorker: {e}")
                 import traceback
                 print(f"Full traceback: {traceback.format_exc()}")
                 continue
-        
+
         self.log.emit(f"Finished downloading {total_episodes} episodes!")
         self.finished.emit()
-    
+
     def _run_segment_downloads(self, segments_to_download, playlist_details, key, episode_dir):
         """Downloads segments using a thread pool."""
         with ThreadPoolExecutor(max_workers=self.app_config["threads"]) as executor:
@@ -461,7 +461,7 @@ class MultiAnimeDownloadWorker(QThread):
                         self.downloader.download_segment, seg_url, key, iv, output_path
                     )
                 )
-            
+
             # Wait for all segments to complete
             for future in as_completed(futures):
                 future.result()
@@ -506,11 +506,11 @@ class PlaybackWorker(QThread):
     def run(self):
         """Plays each episode in sequence using the external media player."""
         import subprocess
-        
+
         try:
             for episode_num, episode_session in self.episodes:
                 self.episode_started.emit(episode_num, self.anime_name)
-                
+
                 # Get stream URL
                 stream_url = self.api.get_stream_url(
                     self.anime_slug, episode_session, self.quality, self.audio
@@ -518,13 +518,13 @@ class PlaybackWorker(QThread):
                 if not stream_url:
                     self.error.emit(f"Could not find stream for Episode {episode_num}")
                     continue
-                
+
                 # Get playlist URL
                 playlist_url = self.api.get_playlist_url(stream_url)
                 if not playlist_url:
                     self.error.emit(f"Could not get playlist for Episode {episode_num}")
                     continue
-                
+
                 # Launch media player
                 try:
                     if self.media_player == "mpv":
@@ -557,27 +557,27 @@ class PlaybackWorker(QThread):
                     else:
                         # Generic fallback
                         cmd = [self.media_player, playlist_url]
-                    
+
                     # Launch the player
                     process = subprocess.Popen(
                         cmd,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL
                     )
-                    
+
                     # For players that block (like ffplay), wait for completion
                     # For others, just launch and continue
                     if self.media_player in ["ffplay"]:
                         process.wait()
-                    
+
                 except subprocess.SubprocessError as e:
                     self.error.emit(f"Failed to launch {self.media_player}: {str(e)}")
                     continue
                 except Exception as e:
                     self.error.emit(f"Unexpected error playing Episode {episode_num}: {str(e)}")
                     continue
-            
+
             self.finished.emit()
-            
+
         except Exception as e:
             self.error.emit(f"Playback worker error: {str(e)}")
