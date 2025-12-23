@@ -299,32 +299,32 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download | Python Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: distribution-artifacts
           path: dist
 
       - name: Download | Binary Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: binary-*
           path: binaries
           merge-multiple: true
 
       - name: Download | AppImage Artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: appimage
           path: binaries
 
       - name: Download | Snap Artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: snap
           path: binaries
 
       - name: Download | Flatpak Artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: flatpak
           path: binaries
