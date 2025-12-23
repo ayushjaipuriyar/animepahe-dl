@@ -2,6 +2,30 @@
 
 <!-- version list -->
 
+## v5.6.0 (2025-12-23)
+
+### Bug Fixes
+
+- Separate build process from semantic-release
+  ([`fea90c2`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/fea90c2809ac8a0c0c2f92ca9a7b29694250bb4f))
+
+- Use standard python build command in semantic-release
+  ([`c634f36`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/c634f36cc277883eaaaa03dbf06a7720a0bf884d))
+
+- Use virtual environments for package testing
+  ([`a0d4232`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/a0d4232f566c7f352ef0ff4fba5729113fe814a5))
+
+### Features
+
+- Add comprehensive binary release automation
+  ([`19d04b2`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/19d04b21f5c19f7c58e3f62d5258c4cf53780a5e))
+
+### Refactoring
+
+- Update CLI imports to new commands submodule structure
+  ([`fe28337`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/fe28337d052bbba0e153acaa42f458bbe812c2d8))
+
+
 ## v5.6.0-dev.2 (2025-12-14)
 
 
