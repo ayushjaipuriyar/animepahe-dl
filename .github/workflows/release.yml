@@ -57,7 +57,7 @@ jobs:
         run: uv build
       - name: Upload | Artifacts
         if: steps.release.outputs.released == 'true'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: distribution-artifacts
           path: dist
@@ -109,7 +109,7 @@ jobs:
           mv dist/animepahe-dl dist/${{ matrix.artifact }}
 
       - name: Upload binary artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: binary-${{ matrix.target }}
           path: dist/${{ matrix.artifact }}
@@ -181,7 +181,7 @@ jobs:
           ./appimagetool AppDir animepahe-dl-x86_64.AppImage
 
       - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: appimage
           path: animepahe-dl-x86_64.AppImage
@@ -201,7 +201,7 @@ jobs:
         id: build
 
       - name: Upload Snap artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: snap
           path: ${{ steps.build.outputs.snap }}
@@ -241,7 +241,7 @@ jobs:
           cache-key: flatpak-builder-${{ github.sha }}
 
       - name: Upload Flatpak artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: flatpak
           path: animepahe-dl.flatpak
