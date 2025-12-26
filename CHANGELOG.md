@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.7.0-dev.1 (2025-12-26)
+
+### Bug Fixes
+
+- Add test step to CI workflow
+  ([`2741e2a`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/2741e2aca7c48f44185226a5e78571d903f3c85d))
+
+
 ## v5.6.0 (2025-12-23)
 
 ### Bug Fixes
