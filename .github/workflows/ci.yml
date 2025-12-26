@@ -46,3 +46,6 @@ jobs:
 
       - name: Install Python dependencies
         run: uv sync --dev --all-extras
+
+      - name: Run tests
+        run: uv run pytest
