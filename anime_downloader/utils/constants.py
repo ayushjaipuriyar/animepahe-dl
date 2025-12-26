@@ -18,12 +18,12 @@ AIRING_URL = f"{BASE_URL}/api?m=airing"
 # HTTP configuration
 HTTP_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Referer": "https://animepahe.si",
+    "Referer": "https://kwik.cx/",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
     "Accept-Encoding": "gzip, deflate",
     "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1"
+    "Upgrade-Insecure-Requests": "1",
 }
 
 # Network configuration
@@ -45,23 +45,26 @@ UPDATE_CHECK_INTERVAL_MINUTES = 60
 # Global base URL override functionality
 _current_base_url = BASE_URL
 
+
 def set_base_url(new_base_url: str):
     """
     Updates the base URL and all related API endpoints.
-    
+
     Args:
         new_base_url: The new base URL to use.
     """
     global _current_base_url, SEARCH_URL, RELEASE_URL, PLAY_URL, AIRING_URL
-    _current_base_url = new_base_url.rstrip('/')
+    _current_base_url = new_base_url.rstrip("/")
     SEARCH_URL = f"{_current_base_url}/api?m=search"
     RELEASE_URL = f"{_current_base_url}/api?m=release"
     PLAY_URL = f"{_current_base_url}/play"
     AIRING_URL = f"{_current_base_url}/api?m=airing"
 
+
 def get_base_url() -> str:
     """Get the current base URL."""
     return _current_base_url
+
 
 # Ensure data directory exists
 os.makedirs(BASE_DATA_DIR, exist_ok=True)

@@ -67,7 +67,7 @@ class MainWindow(QMainWindow):
         self.local_anime_list = []
         self.worker = None  # To hold a reference to the running worker
         self.last_cache_count = None
-        
+
         # Ensure download directory exists
         try:
             download_dir = app_cfg.get("download_directory", "downloads")
@@ -79,11 +79,11 @@ class MainWindow(QMainWindow):
         self._setup_system_tray()
         self._apply_modern_styling()
         self.load_local_anime_list()
-        
+
         # Setup update timer for background monitoring
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.background_update_check)
-        
+
         # Auto-update cache if empty on launch
         if not self.local_anime_list:
             self.start_cache_update()
@@ -105,7 +105,7 @@ class MainWindow(QMainWindow):
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_layout.addWidget(title_label)
-        
+
         subtitle_label = QLabel("Download anime episodes with ease")
         subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         subtitle_label.setStyleSheet("color: palette(mid); font-size: 11pt;")
@@ -115,11 +115,11 @@ class MainWindow(QMainWindow):
         # --- Search Area ---
         search_layout = QHBoxLayout()
         search_layout.setSpacing(12)
-        
+
         search_label = QLabel("Search:")
         search_label.setMinimumWidth(60)
         search_layout.addWidget(search_label)
-        
+
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText("Filter anime list... (Ctrl+F to focus)")
         self.search_bar.textChanged.connect(self.filter_anime_list)
@@ -139,19 +139,19 @@ class MainWindow(QMainWindow):
         # --- Results and Episodes Panels ---
         content_layout = QHBoxLayout()
         content_layout.setSpacing(16)
-        
+
         # Left panel - Anime list
         left_panel = QVBoxLayout()
         anime_label = QLabel("📺 Anime List")
         anime_label.setStyleSheet("font-weight: 600; font-size: 12pt; margin-bottom: 8px;")
         left_panel.addWidget(anime_label)
-        
+
         self.results_list = QListWidget()
         self.results_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.results_list.itemClicked.connect(self.on_anime_selected)
         self.results_list.setMinimumWidth(300)
         left_panel.addWidget(self.results_list)
-        
+
         left_widget = QWidget()
         left_widget.setLayout(left_panel)
         content_layout.addWidget(left_widget, 1)
@@ -161,7 +161,7 @@ class MainWindow(QMainWindow):
         episodes_label = QLabel("📋 Episodes")
         episodes_label.setStyleSheet("font-weight: 600; font-size: 12pt; margin-bottom: 8px;")
         right_panel.addWidget(episodes_label)
-        
+
         self.episode_table = QTableWidget()
         self.episode_table.setColumnCount(3)
         self.episode_table.setHorizontalHeaderLabels(["Episode", "Status", "Download"])
@@ -171,53 +171,53 @@ class MainWindow(QMainWindow):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.episode_table.verticalHeader().setVisible(False)
         right_panel.addWidget(self.episode_table)
-        
+
         right_widget = QWidget()
         right_widget.setLayout(right_panel)
         content_layout.addWidget(right_widget, 2)  # Give episodes panel more space
-        
+
         main_layout.addLayout(content_layout)
 
         # --- Episode Selection Controls ---
         episode_controls_layout = QHBoxLayout()
         episode_controls_layout.setSpacing(12)
-        
+
         controls_label = QLabel("Episode Selection:")
         controls_label.setStyleSheet("font-weight: 500;")
         episode_controls_layout.addWidget(controls_label)
-        
+
         self.select_all_button = QPushButton("✅ Select All Episodes")
         self.select_all_button.clicked.connect(self.select_all_episodes)
         self.select_all_button.setEnabled(False)  # Disabled by default
         self.select_all_button.setToolTip("Select all available episodes (Ctrl+A)")
         episode_controls_layout.addWidget(self.select_all_button)
-        
+
         self.select_none_button = QPushButton("❌ Select None")
         self.select_none_button.clicked.connect(self.select_no_episodes)
         self.select_none_button.setEnabled(False)  # Disabled by default
         self.select_none_button.setToolTip("Deselect all episodes (Ctrl+D)")
         episode_controls_layout.addWidget(self.select_none_button)
-        
+
         episode_controls_layout.addStretch()  # Push buttons to the left
         main_layout.addLayout(episode_controls_layout)
 
         # --- Action Buttons ---
         action_layout = QHBoxLayout()
         action_layout.addStretch()
-        
+
         self.play_button = QPushButton("▶️ Play Selected Episodes")
         self.play_button.setObjectName("playButton")
         self.play_button.clicked.connect(self.start_playback)
         self.play_button.setToolTip("Stream selected episodes directly (Ctrl+P)")
         self.play_button.setEnabled(False)  # Disabled by default
         action_layout.addWidget(self.play_button)
-        
+
         self.download_button = QPushButton("⬇️ Download Selected Episodes")
         self.download_button.clicked.connect(self.start_download)
         self.download_button.setToolTip("Start downloading selected episodes (Enter)")
         action_layout.addWidget(self.download_button)
         action_layout.addStretch()
-        
+
         main_layout.addLayout(action_layout)
 
         # --- Status Bar ---
@@ -225,7 +225,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.progress_bar = QProgressBar()
         self.status_bar.addPermanentWidget(self.progress_bar)
-        
+
         # --- Keyboard Shortcuts ---
         self.setup_shortcuts()
 
@@ -242,53 +242,53 @@ class MainWindow(QMainWindow):
 
         # Create system tray icon
         self.tray_icon = QSystemTrayIcon(self)
-        
+
         # Create a simple icon (you can replace this with a proper icon file)
         icon = self._create_tray_icon()
         self.tray_icon.setIcon(icon)
-        
+
         # Create tray menu
         tray_menu = QMenu()
-        
+
         # Show/Hide action
         show_action = QAction("Show", self)
         show_action.triggered.connect(self.show_window)
         tray_menu.addAction(show_action)
-        
+
         hide_action = QAction("Hide", self)
         hide_action.triggered.connect(self.hide_window)
         tray_menu.addAction(hide_action)
-        
+
         tray_menu.addSeparator()
-        
+
         # Update cache action
         update_action = QAction("Update Cache", self)
         update_action.triggered.connect(self.start_cache_update)
         tray_menu.addAction(update_action)
-        
+
         # Start/Stop monitoring
         self.monitor_action = QAction("Start Monitoring", self)
         self.monitor_action.triggered.connect(self.toggle_monitoring)
         tray_menu.addAction(self.monitor_action)
-        
+
         tray_menu.addSeparator()
-        
+
         # Quit action
         quit_action = QAction("Quit", self)
         quit_action.triggered.connect(self.quit_application)
         tray_menu.addAction(quit_action)
-        
+
         self.tray_icon.setContextMenu(tray_menu)
-        
+
         # Connect tray icon activation
         self.tray_icon.activated.connect(self.tray_icon_activated)
-        
+
         # Show tray icon
         self.tray_icon.show()
-        
+
         # Set tooltip
         self.tray_icon.setToolTip("AnimePahe Downloader")
-        
+
         # Show tray message
         self.tray_icon.showMessage(
             "AnimePahe Downloader",
@@ -298,11 +298,16 @@ class MainWindow(QMainWindow):
         )
 
     def _create_tray_icon(self):
-        """Create a simple tray icon."""
-        # Create a simple colored square icon
-        pixmap = QPixmap(16, 16)
-        pixmap.fill(QColor(33, 150, 243))  # Blue color
-        return QIcon(pixmap)
+        """Load the SVG icon for the tray if available, else fallback to a colored square."""
+        import os
+        icon_path = os.path.join(os.path.dirname(__file__), '../../icon.svg')
+        icon_path = os.path.abspath(icon_path)
+        if os.path.exists(icon_path):
+            return QIcon(icon_path)
+        else:
+            pixmap = QPixmap(32, 32)
+            pixmap.fill(QColor("#7c3aed"))
+            return QIcon(pixmap)
 
     def load_local_anime_list(self):
         """Loads the anime list from the local cache file and populates the list widget."""
@@ -319,7 +324,7 @@ class MainWindow(QMainWindow):
 
         self.local_anime_list.sort(key=lambda x: x["title"])
         self.filter_anime_list()
-        
+
         # Initially disable episode selection buttons since no anime is selected
         self.select_all_button.setEnabled(False)
         self.select_none_button.setEnabled(False)
@@ -384,17 +389,17 @@ class MainWindow(QMainWindow):
         selected_items = self.results_list.selectedItems()
         if not selected_items:
             return
-        
+
         # For now, show episodes for the first selected anime
         anime_data = selected_items[0].data(Qt.ItemDataRole.UserRole)
-        
+
         if len(selected_items) > 1:
             self.status_bar.showMessage(
                 f"Selected {len(selected_items)} anime. Showing episodes for {anime_data['title']}..."
             )
         else:
             self.status_bar.showMessage(f"Fetching episodes for {anime_data['title']}...")
-        
+
         self.worker = EpisodeWorker(self.api, anime_data)
         self.worker.finished.connect(self.on_episodes_fetched)
         self.worker.start()
@@ -445,7 +450,7 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(
             f"Loaded {total_count} episodes for {anime.name} ({downloaded_count} already downloaded)."
         )
-        
+
         self.select_all_button.setEnabled(True)
         self.select_none_button.setEnabled(True)
         self.play_button.setEnabled(True)
@@ -498,7 +503,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No
             )
-            
+
             if reply == QMessageBox.StandardButton.Yes:
                 self.download_button.setEnabled(False)
                 self.status_bar.showMessage(f"Preparing to download {len(selected_items)} anime...")
@@ -559,7 +564,7 @@ class MainWindow(QMainWindow):
 
         # Import the detect_media_player function from CLI
         from ..cli.commands import detect_media_player
-        
+
         # Detect available media player
         media_player = detect_media_player()
         if not media_player:
@@ -622,24 +627,24 @@ class MainWindow(QMainWindow):
         """Selects all non-downloaded episodes in the episode table."""
         if not self.current_anime:
             return
-            
+
         selected_count = 0
         for i in range(self.episode_table.rowCount()):
             checkbox = self.episode_table.item(i, 2)
             if checkbox and checkbox.flags() & Qt.ItemFlag.ItemIsEnabled:
                 checkbox.setCheckState(Qt.CheckState.Checked)
                 selected_count += 1
-        
+
         if selected_count > 0:
             self.status_bar.showMessage(f"Selected {selected_count} episodes for download.", 3000)
         else:
             self.status_bar.showMessage("No episodes available for selection.", 3000)
-    
+
     def select_no_episodes(self):
         """Deselects all episodes in the episode table."""
         if not self.current_anime:
             return
-            
+
         deselected_count = 0
         for i in range(self.episode_table.rowCount()):
             checkbox = self.episode_table.item(i, 2)
@@ -647,34 +652,34 @@ class MainWindow(QMainWindow):
                 if checkbox.checkState() == Qt.CheckState.Checked:
                     deselected_count += 1
                 checkbox.setCheckState(Qt.CheckState.Unchecked)
-        
+
         if deselected_count > 0:
             self.status_bar.showMessage(f"Deselected {deselected_count} episodes.", 3000)
         else:
             self.status_bar.showMessage("No episodes were selected.", 3000)
-    
+
     def setup_shortcuts(self):
         """Sets up keyboard shortcuts for better usability."""
         # Ctrl+F to focus search bar
         search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
         search_shortcut.activated.connect(lambda: self.search_bar.setFocus())
-        
+
         # Ctrl+A to select all episodes
         select_all_shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
         select_all_shortcut.activated.connect(lambda: self.select_all_episodes() if self.select_all_button.isEnabled() else None)
-        
+
         # Ctrl+D to deselect all episodes
         select_none_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
         select_none_shortcut.activated.connect(lambda: self.select_no_episodes() if self.select_none_button.isEnabled() else None)
-        
+
         # Enter to start download
         download_shortcut = QShortcut(QKeySequence("Return"), self)
         download_shortcut.activated.connect(self.start_download)
-        
+
         # Ctrl+P to start playback
         play_shortcut = QShortcut(QKeySequence("Ctrl+P"), self)
         play_shortcut.activated.connect(self.start_playback)
-        
+
         # F5 to refresh cache
         refresh_shortcut = QShortcut(QKeySequence("F5"), self)
         refresh_shortcut.activated.connect(self.start_cache_update)
@@ -690,10 +695,10 @@ class MainWindow(QMainWindow):
             font.setFamily("Segoe UI")
         font.setPointSize(10)
         self.setFont(font)
-        
+
         # Detect if system is using dark theme
         is_dark_theme = self._detect_dark_theme()
-        
+
         # Define colors based on theme
         if is_dark_theme:
             bg_color = "#1e1e1e"
@@ -721,19 +726,19 @@ class MainWindow(QMainWindow):
             success_color = "#28a745"
             selected_color = "#0078d4"
             disabled_color = "#adb5bd"
-        
+
         # Apply comprehensive dark/light theme stylesheet
         modern_style = f"""
         QMainWindow {{
             background-color: {bg_color};
             color: {text_color};
         }}
-        
+
         QWidget {{
             background-color: {bg_color};
             color: {text_color};
         }}
-        
+
         QLineEdit {{
             padding: 8px 12px;
             border: 1px solid {border_color};
@@ -743,12 +748,12 @@ class MainWindow(QMainWindow):
             font-size: 10pt;
             selection-background-color: {selected_color};
         }}
-        
+
         QLineEdit:focus {{
             border-color: {accent_color};
             background-color: {surface_color};
         }}
-        
+
         QPushButton {{
             padding: 8px 16px;
             border: 1px solid {border_color};
@@ -758,22 +763,22 @@ class MainWindow(QMainWindow):
             font-size: 10pt;
             font-weight: 500;
         }}
-        
+
         QPushButton:hover {{
             background-color: {hover_color};
             border-color: {accent_color};
         }}
-        
+
         QPushButton:pressed {{
             background-color: {border_color};
         }}
-        
+
         QPushButton:disabled {{
             background-color: {surface_color};
             color: {disabled_color};
             border-color: {disabled_color};
         }}
-        
+
         QListWidget {{
             border: 1px solid {border_color};
             border-radius: 6px;
@@ -782,23 +787,23 @@ class MainWindow(QMainWindow):
             outline: none;
             padding: 4px;
         }}
-        
+
         QListWidget::item {{
             padding: 10px 12px;
             border: none;
             border-radius: 4px;
             margin: 1px;
         }}
-        
+
         QListWidget::item:selected {{
             background-color: {selected_color};
             color: white;
         }}
-        
+
         QListWidget::item:hover {{
             background-color: {hover_color};
         }}
-        
+
         QTableWidget {{
             border: 1px solid {border_color};
             border-radius: 6px;
@@ -807,17 +812,17 @@ class MainWindow(QMainWindow):
             gridline-color: {border_color};
             outline: none;
         }}
-        
+
         QTableWidget::item {{
             padding: 10px 12px;
             border: none;
         }}
-        
+
         QTableWidget::item:selected {{
             background-color: {selected_color};
             color: white;
         }}
-        
+
         QHeaderView::section {{
             background-color: {surface_color};
             color: {text_color};
@@ -827,7 +832,7 @@ class MainWindow(QMainWindow):
             border-bottom: 1px solid {border_color};
             font-weight: 600;
         }}
-        
+
         QProgressBar {{
             border: 1px solid {border_color};
             border-radius: 6px;
@@ -836,25 +841,25 @@ class MainWindow(QMainWindow):
             color: {text_color};
             font-weight: 500;
         }}
-        
+
         QProgressBar::chunk {{
             background-color: {accent_color};
             border-radius: 5px;
         }}
-        
+
         QStatusBar {{
             background-color: {surface_color};
             color: {text_color};
             border-top: 1px solid {border_color};
             padding: 4px;
         }}
-        
+
         QLabel {{
             color: {text_color};
             font-size: 10pt;
             background-color: transparent;
         }}
-        
+
         QPushButton#downloadButton {{
             background-color: {success_color};
             color: white;
@@ -864,16 +869,16 @@ class MainWindow(QMainWindow):
             border: none;
             border-radius: 8px;
         }}
-        
+
         QPushButton#downloadButton:hover {{
             background-color: {'#45a049' if is_dark_theme else '#218838'};
         }}
-        
+
         QPushButton#downloadButton:disabled {{
             background-color: {disabled_color};
             color: {secondary_text};
         }}
-        
+
         QPushButton#playButton {{
             background-color: {'#2196F3' if is_dark_theme else '#1976D2'};
             border: none;
@@ -883,22 +888,22 @@ class MainWindow(QMainWindow):
             border-radius: 8px;
             font-size: 11pt;
         }}
-        
+
         QPushButton#playButton:hover {{
             background-color: {'#1976D2' if is_dark_theme else '#1565C0'};
         }}
-        
+
         QPushButton#playButton:disabled {{
             background-color: {disabled_color};
             color: {secondary_text};
         }}
         """
-        
+
         self.setStyleSheet(modern_style)
         self.download_button.setObjectName("downloadButton")
         self.episode_table.setAlternatingRowColors(True)
         self.results_list.setAlternatingRowColors(True)
-        
+
         # Connect to palette change events
         app = QApplication.instance()
         if app:
@@ -951,11 +956,11 @@ class MainWindow(QMainWindow):
         """Perform background update check for new episodes."""
         if self.worker and self.worker.isRunning():
             return  # Don't start if another operation is running
-        
+
         try:
             # Import notification here to avoid circular imports
             from plyer import notification
-            
+
             # Check for new episodes
             new_episodes = self.api.check_for_updates()
             if new_episodes:
@@ -965,12 +970,12 @@ class MainWindow(QMainWindow):
                         my_anime_list = [line.strip() for line in f]
                 except FileNotFoundError:
                     my_anime_list = []
-                
+
                 relevant_episodes = [
-                    ep for ep in new_episodes 
+                    ep for ep in new_episodes
                     if ep["anime_title"] in my_anime_list
                 ]
-                
+
                 if relevant_episodes:
                     # Show notification
                     notification.notify(
@@ -979,7 +984,7 @@ class MainWindow(QMainWindow):
                         app_name="Animepahe Downloader",
                         timeout=10
                     )
-                    
+
                     # Show tray message
                     self.tray_icon.showMessage(
                         "New Episodes Available",
@@ -987,11 +992,11 @@ class MainWindow(QMainWindow):
                         QSystemTrayIcon.MessageIcon.Information,
                         5000
                     )
-                    
+
                     # Update status bar if window is visible
                     if self.isVisible():
                         self.status_bar.showMessage(
-                            f"Background check: Found {len(relevant_episodes)} new episodes", 
+                            f"Background check: Found {len(relevant_episodes)} new episodes",
                             10000
                         )
         except Exception as e:
@@ -1001,10 +1006,10 @@ class MainWindow(QMainWindow):
         """Quit the application completely."""
         if self.update_timer.isActive():
             self.update_timer.stop()
-        
+
         if self.tray_icon:
             self.tray_icon.hide()
-        
+
         QApplication.quit()
 
     def closeEvent(self, event):
@@ -1027,22 +1032,22 @@ class MainWindow(QMainWindow):
         palette = self.palette()
         window_color = palette.color(QPalette.ColorRole.Window)
         qt_is_dark = window_color.lightness() < 128
-        
+
         # Method 2: Check environment variables and desktop settings
         env_is_dark = False
-        
+
         try:
             # Check for GNOME/GTK dark theme
             if os.environ.get('XDG_CURRENT_DESKTOP', '').lower() in ['gnome', 'unity', 'gtk']:
                 try:
-                    result = subprocess.run(['gsettings', 'get', 'org.gnome.desktop.interface', 'gtk-theme'], 
+                    result = subprocess.run(['gsettings', 'get', 'org.gnome.desktop.interface', 'gtk-theme'],
                                           capture_output=True, text=True, timeout=2)
                     if result.returncode == 0:
                         theme_name = result.stdout.strip().strip("'\"").lower()
                         env_is_dark = 'dark' in theme_name or 'adwaita-dark' in theme_name
                 except:
                     pass
-            
+
             # Check for KDE dark theme
             elif os.environ.get('XDG_CURRENT_DESKTOP', '').lower() in ['kde', 'plasma']:
                 try:
@@ -1054,25 +1059,25 @@ class MainWindow(QMainWindow):
                                 env_is_dark = True
                 except:
                     pass
-            
+
             # Check for Hyprland and other Wayland compositors
             elif os.environ.get('XDG_CURRENT_DESKTOP', '').lower() in ['hyprland', 'sway', 'river', 'wayfire']:
                 try:
-                    result = subprocess.run(['gsettings', 'get', 'org.gnome.desktop.interface', 'gtk-theme'], 
+                    result = subprocess.run(['gsettings', 'get', 'org.gnome.desktop.interface', 'gtk-theme'],
                                           capture_output=True, text=True, timeout=2)
                     if result.returncode == 0:
                         theme_name = result.stdout.strip().strip("'\"").lower()
                         env_is_dark = 'dark' in theme_name or 'adwaita-dark' in theme_name
-                    
+
                     if not env_is_dark:
-                        result = subprocess.run(['gsettings', 'get', 'org.gnome.desktop.interface', 'color-scheme'], 
+                        result = subprocess.run(['gsettings', 'get', 'org.gnome.desktop.interface', 'color-scheme'],
                                               capture_output=True, text=True, timeout=2)
                         if result.returncode == 0:
                             color_scheme = result.stdout.strip().strip("'\"").lower()
                             env_is_dark = 'dark' in color_scheme or 'prefer-dark' in color_scheme
                 except:
                     pass
-            
+
             # Check for general dark theme environment variables
             if not env_is_dark:
                 dark_env_vars = ['GTK_THEME', 'QT_STYLE_OVERRIDE']
@@ -1081,25 +1086,25 @@ class MainWindow(QMainWindow):
                     if 'dark' in value:
                         env_is_dark = True
                         break
-        
+
         except Exception as e:
             print(f"Warning: Could not detect system theme: {e}")
-        
+
         # Method 3: Force dark mode if user has set environment variable
         force_dark = os.environ.get('ANIMEPAHE_DL_DARK_MODE', '').lower() in ['1', 'true', 'yes']
         force_light = os.environ.get('ANIMEPAHE_DL_LIGHT_MODE', '').lower() in ['1', 'true', 'yes']
-        
+
         if force_dark:
             return True
         elif force_light:
             return False
-        
+
         # Use environment detection if available, otherwise fall back to Qt
         final_result = env_is_dark if env_is_dark else qt_is_dark
-        
+
         print(f"Theme detection: Qt={qt_is_dark}, Env={env_is_dark}, Final={final_result}")
         return final_result
-    
+
     def _on_palette_changed(self):
         """Handle system theme changes."""
         self._apply_modern_styling()
@@ -1114,30 +1119,30 @@ def run_gui():
     """Initializes and runs the PyQt6 GUI application."""
     # Setup signal handling for graceful shutdown
     signal_handler = setup_signal_handling()
-    
+
     # Set Qt platform plugin for better Wayland support
     if not os.environ.get('QT_QPA_PLATFORM'):
         if os.environ.get('WAYLAND_DISPLAY'):
             os.environ['QT_QPA_PLATFORM'] = 'wayland'
         elif os.environ.get('DISPLAY'):
             os.environ['QT_QPA_PLATFORM'] = 'xcb'
-    
+
     app = QApplication(sys.argv)
-    
+
     # Set application properties
     app.setApplicationName("AnimePahe Downloader")
     app.setApplicationVersion("5.4.0")
     app.setOrganizationName("AnimePahe-DL")
-    
+
     window = MainWindow()
-    
+
     # Register GUI shutdown callback
     def gui_shutdown():
         if window.worker and window.worker.isRunning():
             window.worker.terminate()
         app.quit()
-    
+
     register_shutdown_callback(gui_shutdown)
-    
+
     window.show()
     sys.exit(app.exec())

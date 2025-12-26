@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 from PyQt6.QtCore import QThread, pyqtSignal
 from typing import List, Dict, Any
-
+from plyer import notification
 from ..api import AnimePaheAPI, Downloader
 from ..models import Anime, Episode
 from ..utils import config_manager
@@ -223,7 +223,6 @@ class DownloadWorker(QThread):
 
                 # Send desktop notification
                 try:
-                    from plyer import notification
                     notification.notify(
                         title="Animepahe-dl",
                         message=f"Finished downloading {self.anime.name} Episode {episode.number}",
@@ -398,7 +397,7 @@ class MultiAnimeDownloadWorker(QThread):
                     continue
 
                 # Download playlist and segments
-                episode_dir = cli.get_episode_dir(anime.name, episode.number, download_dir)
+                episode_dir = get_episode_dir(anime.name, episode.number, download_dir)
                 playlist_path = self.downloader.fetch_playlist(playlist_url, episode_dir)
                 if not playlist_path:
                     continue

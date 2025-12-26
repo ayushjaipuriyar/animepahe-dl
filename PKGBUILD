@@ -34,4 +34,12 @@ build() {
 package() {
   cd "${srcdir}/${pkgname}"
   python -m pip install --root="${pkgdir}" --no-deps --ignore-installed .
+
+  # Install desktop entry
+  install -Dm644 "${srcdir}/${pkgname}/animepahe-dl.desktop" \
+    "${pkgdir}/usr/share/applications/animepahe-dl.desktop"
+
+  # Install icon (SVG)
+  install -Dm644 "${srcdir}/${pkgname}/icon.svg" \
+    "${pkgdir}/usr/share/icons/hicolor/scalable/apps/animepahe-dl.svg"
 }
