@@ -12,7 +12,7 @@ on:
       force:
         description: 'Force release even if no changes'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 permissions:
@@ -96,16 +96,26 @@ jobs:
       - name: Install PyInstaller
         run: uv add --dev pyinstaller
 
+
       - name: Build binary (Windows)
         if: matrix.target == 'windows'
         run: |
-          uv run pyinstaller animepahe-dl.spec
+          if [ -f animepahe-dl.spec ]; then
+            uv run pyinstaller animepahe-dl.spec
+          else
+            uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
+          fi
           move dist/animepahe-dl.exe dist/${{ matrix.artifact }}
+
 
       - name: Build binary (Linux/macOS)
         if: matrix.target != 'windows'
         run: |
-          uv run pyinstaller animepahe-dl.spec
+          if [ -f animepahe-dl.spec ]; then
+            uv run pyinstaller animepahe-dl.spec
+          else
+            uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
+          fi
           mv dist/animepahe-dl dist/${{ matrix.artifact }}
 
       - name: Upload binary artifacts
@@ -145,15 +155,15 @@ jobs:
           # Download AppImage tools
           wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool
-          
+
           # Create AppDir structure
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          
+
           # Copy binary
           cp dist/animepahe-dl AppDir/usr/bin/
-          
+
           # Create desktop file
           cat > AppDir/usr/share/applications/animepahe-dl.desktop << EOF
           [Desktop Entry]
@@ -165,10 +175,10 @@ jobs:
           Categories=Network;AudioVideo;
           Terminal=true
           EOF
-          
+
           # Create a simple icon (you can replace this with a real icon)
           convert -size 256x256 xc:blue AppDir/usr/share/icons/hicolor/256x256/apps/animepahe-dl.png || echo "ImageMagick not available, skipping icon"
-          
+
           # Create AppRun
           cat > AppDir/AppRun << 'EOF'
           #!/bin/bash
@@ -176,7 +186,7 @@ jobs:
           exec "${HERE}/usr/bin/animepahe-dl" "$@"
           EOF
           chmod +x AppDir/AppRun
-          
+
           # Build AppImage
           ./appimagetool AppDir animepahe-dl-x86_64.AppImage
 
@@ -263,11 +273,11 @@ jobs:
           CLEAN_TAG="${TAG#v}"
           URL="https://github.com/ayushjaipuriyar/animepahe-dl/archive/${TAG}.tar.gz"
           SHA256=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
-          
+
           # Update the formula
           sed -i "s/v[0-9]\+\.[0-9]\+\.[0-9]\+/${TAG}/g" Formula/animepahe-dl.rb
           sed -i "s/PLACEHOLDER_SHA256/${SHA256}/g" Formula/animepahe-dl.rb
-          
+
           echo "Updated Homebrew formula for version ${CLEAN_TAG}"
           echo "SHA256: ${SHA256}"
 
@@ -279,10 +289,10 @@ jobs:
           title: "animepahe-dl: update to ${{ needs.release.outputs.tag }}"
           body: |
             Automated update of animepahe-dl to version ${{ needs.release.outputs.tag }}
-            
+
             - Updated version to ${{ needs.release.outputs.tag }}
             - Updated SHA256 checksum
-            
+
             This PR was automatically created by the release workflow.
           branch: update-animepahe-dl-${{ needs.release.outputs.tag }}
           base: main
