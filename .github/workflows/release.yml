@@ -99,6 +99,7 @@ jobs:
 
       - name: Build binary (Windows)
         if: matrix.target == 'windows'
+        shell: bash
         run: |
           if [ -f animepahe-dl.spec ]; then
             uv run pyinstaller animepahe-dl.spec
@@ -152,9 +153,15 @@ jobs:
 
       - name: Create AppImage
         run: |
-          # Download AppImage tools
+          # Install required dependencies
+          sudo apt-get update
+          sudo apt-get install -y imagemagick libfuse2
+
+          # Download and extract AppImage tools
           wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool
+          ./appimagetool --appimage-extract
+          mv squashfs-root appimagetool.AppDir
 
           # Create AppDir structure
           mkdir -p AppDir/usr/bin
@@ -176,8 +183,8 @@ jobs:
           Terminal=true
           EOF
 
-          # Create a simple icon (you can replace this with a real icon)
-          convert -size 256x256 xc:blue AppDir/usr/share/icons/hicolor/256x256/apps/animepahe-dl.png || echo "ImageMagick not available, skipping icon"
+          # Create a simple icon
+          convert -size 256x256 xc:blue AppDir/usr/share/icons/hicolor/256x256/apps/animepahe-dl.png
 
           # Create AppRun
           cat > AppDir/AppRun << 'EOF'
@@ -188,7 +195,7 @@ jobs:
           chmod +x AppDir/AppRun
 
           # Build AppImage
-          ./appimagetool AppDir animepahe-dl-x86_64.AppImage
+          ./appimagetool.AppDir/AppRun AppDir animepahe-dl-x86_64.AppImage
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v5

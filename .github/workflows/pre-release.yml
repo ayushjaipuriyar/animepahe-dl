@@ -6,7 +6,7 @@ on:
       force:
         description: 'Force release even if no changes'
         required: false
-        default: 'false'
+        default: false
         type: boolean
   push:
     branches: [dev]
@@ -98,3 +98,144 @@ jobs:
           source test-sdist/bin/activate
           uv pip install dist/*.tar.gz
           animepahe-dl --version
+
+  build-binaries:
+    needs: pre-release
+    if: needs.pre-release.outputs.released == 'true'
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows
+            artifact: animepahe-dl-windows.exe
+          - os: ubuntu-latest
+            target: linux
+            artifact: animepahe-dl-linux
+          - os: macos-latest
+            target: macos
+            artifact: animepahe-dl-macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Install PyInstaller
+        run: uv add --dev pyinstaller
+
+
+      - name: Build binary (Windows)
+        if: matrix.target == 'windows'
+        shell: bash
+        run: |
+          if [ -f animepahe-dl.spec ]; then
+            uv run pyinstaller animepahe-dl.spec
+          else
+            uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
+          fi
+          move dist/animepahe-dl.exe dist/${{ matrix.artifact }}
+
+
+      - name: Build binary (Linux/macOS)
+        if: matrix.target != 'windows'
+        run: |
+          if [ -f animepahe-dl.spec ]; then
+            uv run pyinstaller animepahe-dl.spec
+          else
+            uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
+          fi
+          mv dist/animepahe-dl dist/${{ matrix.artifact }}
+
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: pre-release-binary-${{ matrix.target }}
+          path: dist/${{ matrix.artifact }}
+          if-no-files-found: error
+
+  build-appimage:
+    needs: pre-release
+    if: needs.pre-release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Install PyInstaller
+        run: uv add --dev pyinstaller
+
+      - name: Build binary
+        run: |
+          uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
+
+      - name: Create AppImage
+        run: |
+          # Install required dependencies
+          sudo apt-get update
+          sudo apt-get install -y imagemagick libfuse2
+
+          # Download and extract AppImage tools
+          wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ./appimagetool --appimage-extract
+          mv squashfs-root appimagetool.AppDir
+
+          # Create AppDir structure
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+
+          # Copy binary
+          cp dist/animepahe-dl AppDir/usr/bin/
+
+          # Create desktop file
+          cat > AppDir/usr/share/applications/animepahe-dl.desktop << EOF
+          [Desktop Entry]
+          Type=Application
+          Name=AnimePahe Downloader
+          Comment=A feature-rich anime downloader
+          Exec=animepahe-dl
+          Icon=animepahe-dl
+          Categories=Network;AudioVideo;
+          Terminal=true
+          EOF
+
+          # Create a simple icon
+          convert -size 256x256 xc:blue AppDir/usr/share/icons/hicolor/256x256/apps/animepahe-dl.png
+
+          # Create AppRun
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          exec "${HERE}/usr/bin/animepahe-dl" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          # Build AppImage
+          ./appimagetool.AppDir/AppRun AppDir animepahe-dl-x86_64.AppImage
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: pre-release-appimage
+          path: animepahe-dl-x86_64.AppImage
+          if-no-files-found: error
