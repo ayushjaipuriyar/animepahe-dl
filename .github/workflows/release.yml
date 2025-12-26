@@ -106,7 +106,7 @@ jobs:
           else
             uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
           fi
-          move dist/animepahe-dl.exe dist/${{ matrix.artifact }}
+          mv dist/animepahe-dl.exe dist/${{ matrix.artifact }}
 
 
       - name: Build binary (Linux/macOS)
