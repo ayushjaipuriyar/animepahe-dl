@@ -10,10 +10,16 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: 'Force release even if no changes'
+        description: 'Force release type even if no changes'
         required: false
-        default: false
-        type: boolean
+        default: 'none'
+        type: choice
+        options:
+          - none
+          - patch
+          - minor
+          - major
+          - prerelease
 
 permissions:
   contents: read
@@ -50,7 +56,7 @@ jobs:
         uses: python-semantic-release/python-semantic-release@v10.5.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          force: ${{ github.event.inputs.force == 'true' }}
+          force: ${{ github.event.inputs.force != 'none' && github.event.inputs.force || '' }}
 
       - name: Build package
         if: steps.release.outputs.released == 'true'
