@@ -94,29 +94,29 @@ def check_dependencies():
 def detect_media_player(preferred_player: str = "") -> Optional[str]:
     """
     Detects available media players on the system.
-    
+
     Args:
         preferred_player: User's preferred media player.
-        
+
     Returns:
         Path to the media player executable, or None if none found.
     """
     # List of media players in order of preference
     players = ["mpv", "vlc", "ffplay", "mplayer"]
-    
+
     # If user specified a preferred player, try it first
     if preferred_player:
         if shutil.which(preferred_player):
             return preferred_player
         else:
             logger.warning(f"Specified player '{preferred_player}' not found. Trying alternatives...")
-    
+
     # Try each player in order
     for player in players:
         if shutil.which(player):
             logger.info(f"Using media player: {player}")
             return player
-    
+
     return None
 
 
@@ -132,7 +132,7 @@ def play_episode_stream(
 ):
     """
     Plays an episode directly using the m3u8 stream.
-    
+
     Args:
         api: An instance of the AnimePaheAPI.
         anime_name: The name of the anime.
@@ -143,23 +143,29 @@ def play_episode_stream(
         audio: Desired audio language.
         player: Media player to use.
     """
+
+    cfg = config_manager.load_config()
+    quality = quality or cfg.get("quality", "best")
+    audio = audio or cfg.get("audio", "jpn")
+    player = player or detect_media_player(cfg.get("player", "")) or player
+
     logger.info(f"Getting stream for {anime_name} Episode {ep_num}...")
-    
+
     # Get the stream URL from the /play page
     stream_url = api.get_stream_url(anime_slug, ep_session, quality, audio)
     if not stream_url:
         logger.error(f"Could not find a matching stream for episode {ep_num}.")
         return False
-    
+
     # Get the m3u8 playlist URL from the stream page
     playlist_url = api.get_playlist_url(stream_url)
     if not playlist_url:
         logger.error(f"Could not get playlist link for episode {ep_num}.")
         return False
-    
+
     logger.info(f"Playing {anime_name} Episode {ep_num} with {player}...")
     logger.info(f"Stream URL: {playlist_url}")
-    
+
     try:
         # Different players have different command line arguments
         if player == "mpv":
@@ -167,11 +173,11 @@ def play_episode_stream(
                 player,
                 f"--title={anime_name} - Episode {ep_num}",
                 f"--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-                f"--referrer=https://animepahe.ru/",
+                f"--referrer={constants.REFERER}",
                 "--network-timeout=30",
                 "--demuxer-max-bytes=50M",
                 "--demuxer-max-back-bytes=25M",
-                playlist_url
+                playlist_url,
             ]
         elif player == "vlc":
             cmd = [player, "--intf", "dummy", "--play-and-exit", playlist_url]
@@ -182,13 +188,13 @@ def play_episode_stream(
         else:
             # Generic fallback
             cmd = [player, playlist_url]
-        
+
         # Launch the media player
         # Don't suppress output initially to see if there are errors
         logger.info(f"Executing command: {' '.join(cmd)}")
         process = subprocess.Popen(cmd)
         logger.success(f"✓ Launched {player} for {anime_name} Episode {ep_num}")
-        
+
         # Wait for the player to finish for all players to ensure proper playback
         try:
             process.wait()
@@ -196,9 +202,9 @@ def play_episode_stream(
         except KeyboardInterrupt:
             logger.info("Playback interrupted by user")
             process.terminate()
-        
+
         return True
-        
+
     except subprocess.SubprocessError as e:
         logger.error(f"Failed to launch media player: {e}")
         return False
@@ -249,7 +255,7 @@ def choose_anime(
     # Format for fzf: "Title"
     # We store slug and title in a dict for easy retrieval
     titles = [r["title"] for r in results]
-    
+
     # Use --multi flag if multi-selection is enabled
     fzf_options = "--multi --bind space:toggle" if multi else ""
     selection = fzf.prompt(titles, fzf_options) if fzf_options else fzf.prompt(titles)
@@ -418,7 +424,7 @@ def download_single_episode(
             compilation_success = downloader.compile_video(
                 episode_dir, output_path, progress_callback=update_pbar
             )
-            
+
             if not compilation_success:
                 logger.error(f"Failed to compile Episode {ep_num}")
                 raise Exception(f"Video compilation failed for Episode {ep_num}")
@@ -488,7 +494,7 @@ def run_update_check(
         return
 
     logger.info(f"Found {len(download_queue)} new episodes to download.")
-    
+
     # Send notification about new episodes found
     try:
         notification.notify(
@@ -499,12 +505,12 @@ def run_update_check(
         )
     except Exception as e:
         logger.warning(f"Failed to send notification: {e}")
-    
+
     for item in download_queue:
         download_single_episode(api, downloader, item, args, app_config)
 
     logger.success("Update check finished!")
-    
+
     # Send completion notification
     try:
         notification.notify(
@@ -545,7 +551,7 @@ def main():
     """Main function to handle command-line arguments and orchestrate the download process."""
     # Setup signal handling for graceful shutdown
     signal_handler = setup_signal_handling()
-    
+
     # Ensure all external dependencies are met before starting
     check_dependencies()
     # Load user configuration from file and apply base_url override early
@@ -668,11 +674,6 @@ def main():
         help="Enable verbose logging for debugging.",
     )
     parser.add_argument(
-        "--play",
-        action="store_true",
-        help="Play the episode(s) directly using m3u8 stream (requires media player).",
-    )
-    parser.add_argument(
         "--player",
         type=str,
         default="",
@@ -680,24 +681,24 @@ def main():
     )
 
     args = parser.parse_args()
-    
+
     # Set verbose logging if requested
     if args.verbose:
         import logging
         logging.basicConfig(level=logging.DEBUG)
         logger.info("Verbose logging enabled")
-    
+
     # Handle special commands first
     if args.install_completions:
         from .completions import install_completions
         install_completions()
         return
-    
+
     if args.config:
         from ..utils.console import print_config_info
         print_config_info(app_config)
         return
-    
+
     if args.history:
         from ..utils.console import console
         console.print("[dim]Download history feature coming soon![/dim]")
@@ -747,93 +748,7 @@ def main():
             from ..utils.console import print_anime_table
             print_anime_table(selected_anime_list)
         return
-    elif args.play:
-        # Play mode - stream episodes directly
-        media_player = detect_media_player(args.player)
-        if not media_player:
-            logger.error("No compatible media player found. Please install mpv, vlc, ffplay, or mplayer.")
-            logger.info("Installation suggestions:")
-            logger.info("  Ubuntu/Debian: sudo apt install mpv")
-            logger.info("  macOS: brew install mpv")
-            logger.info("  Windows: Download from https://mpv.io/")
-            return
-        
-        # Search for anime
-        selected_anime_list = choose_anime(api, args.name, cache_count, multi=not args.single)
-        if not selected_anime_list:
-            return
-        
-        # Process each selected anime for playing
-        for selected_anime in selected_anime_list:
-            anime_name = selected_anime["title"]
-            anime_slug = selected_anime["session"]
-            
-            logger.info(f"\n{'='*60}")
-            logger.info(f"Processing: {anime_name}")
-            logger.info(f"{'='*60}")
-            
-            # Fetch episode data
-            episode_data = api.fetch_episode_data(anime_name, anime_slug)
-            if not episode_data:
-                logger.error(f"Could not fetch episodes for {anime_name}. Skipping.")
-                continue
-            
-            # Create Anime object and populate episodes
-            anime = Anime(name=anime_name, slug=anime_slug)
-            max_ep = 0
-            for ep_data in episode_data:
-                ep_num = int(ep_data["episode"])
-                if ep_num > max_ep:
-                    max_ep = ep_num
-                episode = Episode(
-                    number=ep_num,
-                    session=ep_data["session"]
-                )
-                anime.episodes.append(episode)
-            
-            # Select episodes to play
-            if not args.episodes:
-                episodes_to_play = select_episodes(anime)
-            else:
-                episodes_to_play = parse_episode_selection(args.episodes, max_ep)
-            
-            if not episodes_to_play:
-                logger.info(f"No episodes selected for {anime_name}.")
-                continue
-            
-            logger.info(f"Selected Episodes to play: {', '.join(map(str, episodes_to_play))}")
-            
-            # Play each episode
-            for ep_num in episodes_to_play:
-                episode = anime.get_episode(ep_num)
-                if not episode:
-                    logger.warning(f"Episode {ep_num} not found for {anime_name}.")
-                    continue
-                
-                success = play_episode_stream(
-                    api, anime_name, anime_slug, ep_num, 
-                    episode.session, args.quality, args.audio, media_player
-                )
-                
-                if not success:
-                    logger.error(f"Failed to play {anime_name} Episode {ep_num}")
-                    continue
-                
-                # For sequential playback, ask user if they want to continue
-                if len(episodes_to_play) > 1 and ep_num != episodes_to_play[-1]:
-                    try:
-                        next_ep = episodes_to_play[episodes_to_play.index(ep_num) + 1] if ep_num in episodes_to_play else ep_num + 1
-                        response = input(f"\nPress Enter to play next episode ({next_ep}), or 'q' to quit: ").strip().lower()
-                        if response == 'q':
-                            logger.info("Playback stopped by user.")
-                            break
-                    except KeyboardInterrupt:
-                        logger.info("\nPlayback interrupted by user.")
-                        break
-        
-        logger.success("Playback session finished!")
-        return
-    elif any([args.name, args.episodes, args.updates, args.single, args.cli]) and not args.play:
+    elif any([args.name, args.episodes, args.updates, args.single, args.cli]):
         # Traditional CLI mode - when specific flags are used or --cli is specified
         # --- Default Mode: Search and Download ---
         # 1. Search for one or more anime (multi-selection is default)
@@ -841,10 +756,108 @@ def main():
         if not selected_anime_list:
             return
 
+        action = questionary.select(
+            "What would you like to do with the selected anime?",
+            choices=["Download", "Play (stream)"],
+        ).ask()
+
+        if not action:
+            return
+
+        if "Play" in action:
+            media_player = detect_media_player(args.player)
+            if not media_player:
+                logger.error(
+                    "No compatible media player found. Please install mpv, vlc, ffplay, or mplayer."
+                )
+                logger.info("Installation suggestions:")
+                logger.info("  Ubuntu/Debian: sudo apt install mpv")
+                logger.info("  macOS: brew install mpv")
+                logger.info("  Windows: Download from https://mpv.io/")
+                return
+
+            for selected_anime in selected_anime_list:
+                anime_name = selected_anime["title"]
+                anime_slug = selected_anime["session"]
+
+                logger.info(f"\n{'='*60}")
+                logger.info(f"Processing: {anime_name}")
+                logger.info(f"{'='*60}")
+
+                episode_data = api.fetch_episode_data(anime_name, anime_slug)
+                if not episode_data:
+                    logger.error(f"Could not fetch episodes for {anime_name}. Skipping.")
+                    continue
+
+                anime = Anime(name=anime_name, slug=anime_slug)
+                max_ep = 0
+                for ep_data in episode_data:
+                    ep_num = int(ep_data["episode"])
+                    if ep_num > max_ep:
+                        max_ep = ep_num
+                    episode = Episode(number=ep_num, session=ep_data["session"])
+                    anime.episodes.append(episode)
+
+                if not args.episodes:
+                    episodes_to_play = select_episodes(anime)
+                else:
+                    episodes_to_play = parse_episode_selection(args.episodes, max_ep)
+
+                if not episodes_to_play:
+                    logger.info(f"No episodes selected for {anime_name}.")
+                    continue
+
+                logger.info(f"Selected Episodes to play: {', '.join(map(str, episodes_to_play))}")
+
+                for ep_num in episodes_to_play:
+                    episode = anime.get_episode(ep_num)
+                    if not episode:
+                        logger.warning(f"Episode {ep_num} not found for {anime_name}.")
+                        continue
+
+                    success = play_episode_stream(
+                        api,
+                        anime_name,
+                        anime_slug,
+                        ep_num,
+                        episode.session,
+                        args.quality,
+                        args.audio,
+                        media_player,
+                    )
+
+                    if not success:
+                        logger.error(f"Failed to play {anime_name} Episode {ep_num}")
+                        continue
+
+                    if len(episodes_to_play) > 1 and ep_num != episodes_to_play[-1]:
+                        try:
+                            next_ep = (
+                                episodes_to_play[episodes_to_play.index(ep_num) + 1]
+                                if ep_num in episodes_to_play
+                                else ep_num + 1
+                            )
+                            response = (
+                                input(
+                                    f"\nPress Enter to play next episode ({next_ep}), or 'q' to quit: "
+                                )
+                                .strip()
+                                .lower()
+                            )
+                            if response == "q":
+                                logger.info("Playback stopped by user.")
+                                break
+                        except KeyboardInterrupt:
+                            logger.info("\nPlayback interrupted by user.")
+                            break
+
+            logger.success("Playback session finished!")
+            return
+
         # 2. Process each selected anime
         all_download_tasks = []
         download_dir = app_config["download_directory"]
-        
+
         for selected_anime in selected_anime_list:
             anime_name = selected_anime["title"]
             anime_slug = selected_anime["session"]
@@ -931,14 +944,14 @@ def main():
 
         # Register shutdown callback to cancel downloads
         executor_ref = None
-        
+
         def shutdown_callback():
             if executor_ref:
                 logger.info("Cancelling active downloads...")
                 executor_ref.shutdown(wait=False)
-        
+
         register_shutdown_callback(shutdown_callback)
-        
+
         try:
             with ThreadPoolExecutor(max_workers=args.concurrent_downloads) as executor:
                 executor_ref = executor
@@ -947,7 +960,7 @@ def main():
                     if is_shutdown_requested():
                         logger.info("Shutdown requested, stopping new downloads")
                         break
-                    
+
                     future = executor.submit(
                         download_single_episode,
                         api,
@@ -970,11 +983,11 @@ def main():
                         if is_shutdown_requested():
                             logger.info("Shutdown requested, stopping download processing")
                             break
-                        
+
                         task = future_to_task.get(future, {"name": "Unknown", "episode_num": "Unknown"})
                         anime_name = task.get("name", "Unknown")
                         episode_num = task.get("episode_num", "Unknown")
-                        
+
                         try:
                             future.result()  # Wait for the download to complete
                             logger.success(f"✓ Completed: {anime_name} Episode {episode_num}")
@@ -987,17 +1000,17 @@ def main():
                             else:
                                 logger.error(f"An episode download failed: {anime_name} Episode {episode_num}")
                                 logger.error(f"Error details: {error_msg}")
-                            
+
                             if args.verbose:
                                 import traceback
                                 logger.error(f"Full traceback: {traceback.format_exc()}")
                             failed_downloads.append(f"{anime_name} Episode {episode_num}")
                         pbar.update(1)
-                    
+
                     if failed_downloads:
                         logger.warning(f"Failed downloads: {', '.join(failed_downloads)}")
                         logger.info("You can retry these episodes later - they will resume from where they left off.")
-        
+
         except KeyboardInterrupt:
             logger.info("Download interrupted by user")
             return

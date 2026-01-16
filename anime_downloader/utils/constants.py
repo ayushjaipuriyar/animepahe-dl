@@ -14,11 +14,11 @@ SEARCH_URL = f"{BASE_URL}/api?m=search"
 RELEASE_URL = f"{BASE_URL}/api?m=release"
 PLAY_URL = f"{BASE_URL}/play"
 AIRING_URL = f"{BASE_URL}/api?m=airing"
-
+REFERER = "https://kwik.cx/"
 # HTTP configuration
 HTTP_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Referer": "https://kwik.cx/",
+    "Referer": REFERER,
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
     "Accept-Encoding": "gzip, deflate",
