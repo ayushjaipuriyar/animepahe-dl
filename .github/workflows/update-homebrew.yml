@@ -1,0 +1,49 @@
+name: Update Homebrew Formula
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Release tag'
+        required: true
+        type: string
+    secrets:
+      HOMEBREW_GITHUB_API_TOKEN:
+        required: true
+
+jobs:
+  update-homebrew:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Update Homebrew Formula
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+        run: |
+          TAG="${{ inputs.tag }}"
+          CLEAN_TAG="${TAG#v}"
+          URL="https://github.com/ayushjaipuriyar/animepahe-dl/archive/${TAG}.tar.gz"
+          SHA256=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
+
+          sed -i "s/v[0-9]\+\.[0-9]\+\.[0-9]\+/${TAG}/g" Formula/animepahe-dl.rb
+          sed -i "s/PLACEHOLDER_SHA256/${SHA256}/g" Formula/animepahe-dl.rb
+
+          echo "Updated Homebrew formula for version ${CLEAN_TAG}"
+          echo "SHA256: ${SHA256}"
+
+      - name: Create Homebrew PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+          commit-message: "animepahe-dl: update to ${{ inputs.tag }}"
+          title: "animepahe-dl: update to ${{ inputs.tag }}"
+          body: |
+            Automated update of animepahe-dl to version ${{ inputs.tag }}
+
+            - Updated version to ${{ inputs.tag }}
+            - Updated SHA256 checksum
+
+            This PR was automatically created by the release workflow.
+          branch: update-animepahe-dl-${{ inputs.tag }}
+          base: main

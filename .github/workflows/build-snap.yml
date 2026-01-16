@@ -1,0 +1,41 @@
+name: Build and Publish Snap
+
+on:
+  workflow_call:
+    inputs:
+      publish:
+        description: 'Whether to publish to Snap Store'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      SNAPCRAFT_STORE_CREDENTIALS:
+        required: false
+
+jobs:
+  build-snap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Build Snap
+        uses: snapcore/action-build@v1
+        id: build
+
+      - name: Upload Snap artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: snap
+          path: ${{ steps.build.outputs.snap }}
+          if-no-files-found: error
+
+      - name: Publish to Snap Store
+        if: inputs.publish && github.ref == 'refs/heads/main'
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: stable

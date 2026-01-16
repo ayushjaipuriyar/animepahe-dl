@@ -1,0 +1,87 @@
+name: Build AppImage
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: 'Python version to use'
+        required: false
+        type: string
+        default: '3.11'
+
+jobs:
+  build-appimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7.2.0
+
+      - name: Set up Python ${{ inputs.python-version }}
+        run: uv python install ${{ inputs.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Install PyInstaller
+        run: uv add --dev pyinstaller
+
+      - name: Build binary
+        run: |
+          uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
+
+      - name: Create AppImage
+        run: |
+          # Install required dependencies
+          sudo apt-get update
+          sudo apt-get install -y imagemagick libfuse2
+
+          # Download and extract AppImage tools
+          wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ./appimagetool --appimage-extract
+          mv squashfs-root appimagetool.AppDir
+
+          # Create AppDir structure
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+
+          # Copy binary
+          cp dist/animepahe-dl AppDir/usr/bin/
+
+          # Create desktop file
+          cat > AppDir/usr/share/applications/animepahe-dl.desktop << EOF
+          [Desktop Entry]
+          Type=Application
+          Name=AnimePahe Downloader
+          Comment=A feature-rich anime downloader
+          Exec=animepahe-dl
+          Icon=animepahe-dl
+          Categories=Network;AudioVideo;
+          Terminal=true
+          EOF
+
+          # Create a simple icon
+          convert -size 256x256 xc:blue AppDir/usr/share/icons/hicolor/256x256/apps/animepahe-dl.png
+
+          # Create AppRun
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          exec "${HERE}/usr/bin/animepahe-dl" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          # Build AppImage
+          ./appimagetool.AppDir/AppRun AppDir animepahe-dl-x86_64.AppImage
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: appimage
+          path: animepahe-dl-x86_64.AppImage
+          if-no-files-found: error
