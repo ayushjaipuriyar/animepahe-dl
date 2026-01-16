@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v5.9.0 (2026-01-16)
+
+### Bug Fixes
+
+- **appimage**: Set single main category and copy icon to AppDir root
+  ([`42746a5`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/42746a5a99a1b031a0cbac055a2f0f5f2e02129e))
+
+### Features
+
+- **cli**: Add interactive play option
+  ([`48626c6`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/48626c6775bbdaa1c38c105e33d5905413e23850))
+
+
 ## v5.8.1 (2026-01-16)
 
 ### Bug Fixes
