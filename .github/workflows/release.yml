@@ -1,7 +1,8 @@
 name: Release
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
     branches: [main]
     paths-ignore:
       - 'docs/**'
@@ -26,6 +27,7 @@ permissions:
 
 jobs:
   release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       released: ${{ steps.release.outputs.released }}
@@ -42,21 +44,15 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        run: uv python install 3.11
-
-      - name: Install dependencies
-        run: uv sync --dev
-
       - name: Python Semantic Release
         id: release
         uses: python-semantic-release/python-semantic-release@v10.5.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          force: ${{ github.event.inputs.force != 'none' && github.event.inputs.force || '' }}
+
+      - name: Install uv
+        if: steps.release.outputs.released != 'none' && github.event.inputs.force || ''
+        uses: astral-sh/setup-uv@v7
 
       - name: Build package
         if: steps.release.outputs.released == 'true'
@@ -102,27 +98,16 @@ jobs:
       - name: Install PyInstaller
         run: uv add --dev pyinstaller
 
-
       - name: Build binary (Windows)
         if: matrix.target == 'windows'
-        shell: bash
         run: |
-          if [ -f animepahe-dl.spec ]; then
-            uv run pyinstaller animepahe-dl.spec
-          else
-            uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
-          fi
-          mv dist/animepahe-dl.exe dist/${{ matrix.artifact }}
-
+          uv run pyinstaller animepahe-dl.spec
+          move dist/animepahe-dl.exe dist/${{ matrix.artifact }}
 
       - name: Build binary (Linux/macOS)
         if: matrix.target != 'windows'
         run: |
-          if [ -f animepahe-dl.spec ]; then
-            uv run pyinstaller animepahe-dl.spec
-          else
-            uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
-          fi
+          uv run pyinstaller animepahe-dl.spec
           mv dist/animepahe-dl dist/${{ matrix.artifact }}
 
       - name: Upload binary artifacts
@@ -159,15 +144,9 @@ jobs:
 
       - name: Create AppImage
         run: |
-          # Install required dependencies
-          sudo apt-get update
-          sudo apt-get install -y imagemagick libfuse2
-
-          # Download and extract AppImage tools
+          # Download AppImage tools
           wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool
-          ./appimagetool --appimage-extract
-          mv squashfs-root appimagetool.AppDir
 
           # Create AppDir structure
           mkdir -p AppDir/usr/bin
@@ -189,8 +168,8 @@ jobs:
           Terminal=true
           EOF
 
-          # Create a simple icon
-          convert -size 256x256 xc:blue AppDir/usr/share/icons/hicolor/256x256/apps/animepahe-dl.png
+          # Create a simple icon (you can replace this with a real icon)
+          convert -size 256x256 xc:blue AppDir/usr/share/icons/hicolor/256x256/apps/animepahe-dl.png || echo "ImageMagick not available, skipping icon"
 
           # Create AppRun
           cat > AppDir/AppRun << 'EOF'
@@ -201,7 +180,7 @@ jobs:
           chmod +x AppDir/AppRun
 
           # Build AppImage
-          ./appimagetool.AppDir/AppRun AppDir animepahe-dl-x86_64.AppImage
+          ./appimagetool AppDir animepahe-dl-x86_64.AppImage
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v5
@@ -243,34 +222,6 @@ jobs:
     needs: release
     if: needs.release.outputs.released == 'true'
     runs-on: ubuntu-latest
-    container:
-      image: bilelmoussaoui/flatpak-github-actions:freedesktop-23.08
-      options: --privileged
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Update Flatpak manifest with new version
-        run: |
-          TAG="${{ needs.release.outputs.tag }}"
-          sed -i "s/tag: v[0-9]\+\.[0-9]\+\.[0-9]\+/tag: ${TAG}/g" com.github.ayushjaipuriyar.animepahe-dl.yml
-
-      - name: Build Flatpak
-        uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
-        with:
-          bundle: animepahe-dl.flatpak
-          manifest-path: com.github.ayushjaipuriyar.animepahe-dl.yml
-          cache-key: flatpak-builder-${{ github.sha }}
-
-      - name: Upload Flatpak artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: flatpak
-          path: animepahe-dl.flatpak
-          if-no-files-found: error
-
-  update-homebrew:
     needs: release
     if: needs.release.outputs.released == 'true'
     runs-on: ubuntu-latest
@@ -321,36 +272,11 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v6
 
-      - name: Download | Python Artifacts
+      - name: Download | Artifacts
         uses: actions/download-artifact@v6
         with:
           name: distribution-artifacts
           path: dist
-
-      - name: Download | Binary Artifacts
-        uses: actions/download-artifact@v6
-        with:
-          pattern: binary-*
-          path: binaries
-          merge-multiple: true
-
-      - name: Download | AppImage Artifact
-        uses: actions/download-artifact@v6
-        with:
-          name: appimage
-          path: binaries
-
-      - name: Download | Snap Artifact
-        uses: actions/download-artifact@v6
-        with:
-          name: snap
-          path: binaries
-
-      - name: Download | Flatpak Artifact
-        uses: actions/download-artifact@v6
-        with:
-          name: flatpak
-          path: binaries
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@v1.13.0
@@ -358,16 +284,6 @@ jobs:
           packages-dir: dist
           print-hash: true
           verbose: true
-
-      - name: Upload binaries to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.release.outputs.tag }}
-          files: |
-            binaries/*
-            dist/*.whl
-            dist/*.tar.gz
-          fail_on_unmatched_files: false
 
       - name: Check PKGBUILD
         run: ls -lah ./PKGBUILD

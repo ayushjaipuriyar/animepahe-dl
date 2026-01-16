@@ -8,6 +8,38 @@
 
 - Add test step to CI workflow
   ([`2741e2a`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/2741e2aca7c48f44185226a5e78571d903f3c85d))
+## v5.7.0 (2025-12-26)
+
+### Bug Fixes
+
+- Add test step to CI workflow ([#42](https://github.com/ayushjaipuriyar/animepahe-dl/pull/42),
+  [`44a5416`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/44a54168d04eefc39c2ccf8869ae1b955b9fb3fa))
+
+- Resolve PyInstaller executable build issues
+  ([#42](https://github.com/ayushjaipuriyar/animepahe-dl/pull/42),
+  [`44a5416`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/44a54168d04eefc39c2ccf8869ae1b955b9fb3fa))
+
+- Separate build process from semantic-release
+  ([#42](https://github.com/ayushjaipuriyar/animepahe-dl/pull/42),
+  [`44a5416`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/44a54168d04eefc39c2ccf8869ae1b955b9fb3fa))
+
+- Use standard python build command in semantic-release
+  ([#42](https://github.com/ayushjaipuriyar/animepahe-dl/pull/42),
+  [`44a5416`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/44a54168d04eefc39c2ccf8869ae1b955b9fb3fa))
+
+- Use virtual environments for package testing
+  ([#42](https://github.com/ayushjaipuriyar/animepahe-dl/pull/42),
+  [`44a5416`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/44a54168d04eefc39c2ccf8869ae1b955b9fb3fa))
+
+### Features
+
+- Add comprehensive binary release automation
+  ([#42](https://github.com/ayushjaipuriyar/animepahe-dl/pull/42),
+  [`44a5416`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/44a54168d04eefc39c2ccf8869ae1b955b9fb3fa))
+
+- Enhance GUI interface and update build configuration
+  ([#42](https://github.com/ayushjaipuriyar/animepahe-dl/pull/42),
+  [`44a5416`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/44a54168d04eefc39c2ccf8869ae1b955b9fb3fa))
 
 
 ## v5.6.0 (2025-12-23)

@@ -54,7 +54,7 @@ jobs:
 
       - name: Python Semantic Release
         id: release
-        uses: python-semantic-release/python-semantic-release@v10.5.2
+        uses: python-semantic-release/python-semantic-release@v10.5.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           force: ${{ github.event.inputs.force != 'none' && github.event.inputs.force || '' }}
@@ -65,7 +65,7 @@ jobs:
 
       - name: Upload | Artifacts
         if: steps.release.outputs.released == 'true'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: pre-release-artifacts
           path: dist
@@ -80,7 +80,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download | Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: pre-release-artifacts
           path: dist
