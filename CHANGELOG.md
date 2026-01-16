@@ -2,6 +2,36 @@
 
 <!-- version list -->
 
+## v5.8.0-dev.1 (2026-01-16)
+
+### Chores
+
+- **deps**: Bump actions/download-artifact from 6 to 7
+  ([#35](https://github.com/ayushjaipuriyar/animepahe-dl/pull/35),
+  [`3475548`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/34755480cd5a038192fe713cb7cd9b030b263dd4))
+
+- **deps**: Bump actions/upload-artifact from 5 to 6
+  ([#34](https://github.com/ayushjaipuriyar/animepahe-dl/pull/34),
+  [`6981b2c`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/6981b2c25d06708b3bd9ca86022828bf235c9c82))
+
+- **deps**: Bump beautifulsoup4 from 4.14.2 to 4.14.3
+  ([#25](https://github.com/ayushjaipuriyar/animepahe-dl/pull/25),
+  [`e96c3c3`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/e96c3c32b7dc1da137bb13d61652ea23c9343389))
+
+- **deps**: Bump python-semantic-release/python-semantic-release
+  ([#33](https://github.com/ayushjaipuriyar/animepahe-dl/pull/33),
+  [`0e9fc7f`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/0e9fc7f40b80486cba67d1965f8346a09397f5d7))
+
+- **deps**: Bump the minor-updates group across 1 directory with 4 updates
+  ([#36](https://github.com/ayushjaipuriyar/animepahe-dl/pull/36),
+  [`e911c63`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/e911c6395ecfd618e2c3192f11c4f2ae5be499b0))
+
+### Refactoring
+
+- Modernize GitHub Actions workflows and remove _reusable- prefix
+  ([`ae85a56`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/ae85a5623a885e2b6e0b94bbc85bb2439c9632f5))
+
+
 ## v5.7.0-dev.1 (2025-12-26)
 
 ### Bug Fixes
