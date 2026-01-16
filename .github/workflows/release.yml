@@ -123,6 +123,9 @@ jobs:
     uses: ./.github/workflows/publish-pypi.yml
     with:
       artifact-name: distribution-artifacts
+    permissions:
+      contents: read
+      id-token: write
 
   publish-aur:
     needs: release
