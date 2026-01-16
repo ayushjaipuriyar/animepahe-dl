@@ -60,12 +60,15 @@ jobs:
           Comment=A feature-rich anime downloader
           Exec=animepahe-dl
           Icon=animepahe-dl
-          Categories=Network;AudioVideo;
+          Categories=AudioVideo;
           Terminal=true
           EOF
 
           # Create a simple icon
           convert -size 256x256 xc:blue AppDir/usr/share/icons/hicolor/256x256/apps/animepahe-dl.png
+
+          # Copy icon to AppDir root for AppImage
+          cp AppDir/usr/share/icons/hicolor/256x256/apps/animepahe-dl.png AppDir/animepahe-dl.png
 
           # Create AppRun
           cat > AppDir/AppRun << 'EOF'
