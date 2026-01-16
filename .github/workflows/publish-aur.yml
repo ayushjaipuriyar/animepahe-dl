@@ -1,0 +1,57 @@
+name: Publish to AUR
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag"
+        required: true
+        type: string
+      dry_run:
+        description: "Run in dry-run mode (build only, no publish)"
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      AUR_USERNAME:
+        required: true
+      AUR_EMAIL:
+        required: true
+      AUR_SSH_PRIVATE_KEY:
+        required: true
+
+jobs:
+  publish-aur:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Update PKGBUILD version
+        run: |
+          tag='${{ inputs.tag }}'
+          clean_tag="${tag#v}"
+          echo "Semantic-release tag: $tag -> pkgver: $clean_tag"
+
+          if [ -z "$clean_tag" ]; then
+            echo "Error: Clean tag is empty; aborting PKGBUILD update." >&2
+            exit 1
+          fi
+
+          sed -i "s/^pkgver=.*/pkgver=${clean_tag}/" PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          sed -i "s|^source=.*|source=(\"git+https://github.com/ayushjaipuriyar/animepahe-dl.git#tag=v${clean_tag}\")|" PKGBUILD
+
+          echo 'Updated PKGBUILD:'
+          grep -E '^(pkgver|pkgrel|source)=' PKGBUILD
+
+      - name: Publish AUR Package
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        with:
+          pkgname: animepahe-dl
+          pkgbuild: ./PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: Update AUR package
+          ssh_keyscan_types: rsa,ecdsa,ed25519
+          test: ${{ inputs.dry_run }}

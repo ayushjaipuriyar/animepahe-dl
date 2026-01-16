@@ -4,16 +4,12 @@ on:
   workflow_run:
     workflows: ["CI"]
     branches: [main]
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
-      - '.gitignore'
   workflow_dispatch:
     inputs:
       force:
-        description: 'Force release type even if no changes'
+        description: "Force release type even if no changes"
         required: false
-        default: 'none'
+        default: "none"
         type: choice
         options:
           - none
@@ -27,7 +23,11 @@ permissions:
 
 jobs:
   release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      }}
     runs-on: ubuntu-latest
     outputs:
       released: ${{ steps.release.outputs.released }}
@@ -49,272 +49,179 @@ jobs:
         uses: python-semantic-release/python-semantic-release@v10.5.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          force: ${{ github.event.inputs.force || 'none' }}
 
       - name: Install uv
-        if: steps.release.outputs.released != 'none' && github.event.inputs.force || ''
-        uses: astral-sh/setup-uv@v7
+        if: steps.release.outputs.released == 'true'
+        uses: astral-sh/setup-uv@v7.2.0
 
       - name: Build package
         if: steps.release.outputs.released == 'true'
         run: uv build
+
       - name: Upload | Artifacts
         if: steps.release.outputs.released == 'true'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: distribution-artifacts
           path: dist
           if-no-files-found: error
 
-  build-binaries:
+  build-windows:
     needs: release
     if: needs.release.outputs.released == 'true'
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            target: windows
-            artifact: animepahe-dl-windows.exe
-          - os: ubuntu-latest
-            target: linux
-            artifact: animepahe-dl-linux
-          - os: macos-latest
-            target: macos
-            artifact: animepahe-dl-macos
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      os: windows-latest
+      target: windows
+      artifact-name: animepahe-dl-windows.exe
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+  build-linux:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      os: ubuntu-latest
+      target: linux
+      artifact-name: animepahe-dl-linux
 
-      - name: Set up Python
-        run: uv python install 3.11
-
-      - name: Install dependencies
-        run: uv sync --dev
-
-      - name: Install PyInstaller
-        run: uv add --dev pyinstaller
-
-      - name: Build binary (Windows)
-        if: matrix.target == 'windows'
-        run: |
-          uv run pyinstaller animepahe-dl.spec
-          move dist/animepahe-dl.exe dist/${{ matrix.artifact }}
-
-      - name: Build binary (Linux/macOS)
-        if: matrix.target != 'windows'
-        run: |
-          uv run pyinstaller animepahe-dl.spec
-          mv dist/animepahe-dl dist/${{ matrix.artifact }}
-
-      - name: Upload binary artifacts
-        uses: actions/upload-artifact@v5
-        with:
-          name: binary-${{ matrix.target }}
-          path: dist/${{ matrix.artifact }}
-          if-no-files-found: error
+  build-macos:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      os: macos-latest
+      target: macos
+      artifact-name: animepahe-dl-macos
 
   build-appimage:
     needs: release
     if: needs.release.outputs.released == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        run: uv python install 3.11
-
-      - name: Install dependencies
-        run: uv sync --dev
-
-      - name: Install PyInstaller
-        run: uv add --dev pyinstaller
-
-      - name: Build binary
-        run: |
-          uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
-
-      - name: Create AppImage
-        run: |
-          # Download AppImage tools
-          wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool
-
-          # Create AppDir structure
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-
-          # Copy binary
-          cp dist/animepahe-dl AppDir/usr/bin/
-
-          # Create desktop file
-          cat > AppDir/usr/share/applications/animepahe-dl.desktop << EOF
-          [Desktop Entry]
-          Type=Application
-          Name=AnimePahe Downloader
-          Comment=A feature-rich anime downloader
-          Exec=animepahe-dl
-          Icon=animepahe-dl
-          Categories=Network;AudioVideo;
-          Terminal=true
-          EOF
-
-          # Create a simple icon (you can replace this with a real icon)
-          convert -size 256x256 xc:blue AppDir/usr/share/icons/hicolor/256x256/apps/animepahe-dl.png || echo "ImageMagick not available, skipping icon"
-
-          # Create AppRun
-          cat > AppDir/AppRun << 'EOF'
-          #!/bin/bash
-          HERE="$(dirname "$(readlink -f "${0}")")"
-          exec "${HERE}/usr/bin/animepahe-dl" "$@"
-          EOF
-          chmod +x AppDir/AppRun
-
-          # Build AppImage
-          ./appimagetool AppDir animepahe-dl-x86_64.AppImage
-
-      - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: appimage
-          path: animepahe-dl-x86_64.AppImage
-          if-no-files-found: error
+    uses: ./.github/workflows/build-appimage.yml
 
   build-snap:
     needs: release
     if: needs.release.outputs.released == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
+    uses: ./.github/workflows/build-snap.yml
+    with:
+      publish: true
+    secrets:
+      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
 
-      - name: Build Snap
-        uses: snapcore/action-build@v1
-        id: build
-
-      - name: Upload Snap artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: snap
-          path: ${{ steps.build.outputs.snap }}
-          if-no-files-found: error
-
-      - name: Publish to Snap Store
-        if: github.ref == 'refs/heads/main'
-        uses: snapcore/action-publish@v1
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        with:
-          snap: ${{ steps.build.outputs.snap }}
-          release: stable
-
-  build-flatpak:
+  update-homebrew:
     needs: release
     if: needs.release.outputs.released == 'true'
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/update-homebrew.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    secrets:
+      HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+
+  publish-pypi:
     needs: release
     if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/publish-pypi.yml
+    with:
+      artifact-name: distribution-artifacts
+
+  publish-aur:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/publish-aur.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    secrets:
+      AUR_USERNAME: ${{ secrets.AUR_USERNAME }}
+      AUR_EMAIL: ${{ secrets.AUR_EMAIL }}
+      AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+
+  upload-release-assets:
+    name: Upload release assets to GitHub
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Update Homebrew Formula
-        env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
-        run: |
-          # Calculate SHA256 of the source tarball
-          TAG="${{ needs.release.outputs.tag }}"
-          CLEAN_TAG="${TAG#v}"
-          URL="https://github.com/ayushjaipuriyar/animepahe-dl/archive/${TAG}.tar.gz"
-          SHA256=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
-
-          # Update the formula
-          sed -i "s/v[0-9]\+\.[0-9]\+\.[0-9]\+/${TAG}/g" Formula/animepahe-dl.rb
-          sed -i "s/PLACEHOLDER_SHA256/${SHA256}/g" Formula/animepahe-dl.rb
-
-          echo "Updated Homebrew formula for version ${CLEAN_TAG}"
-          echo "SHA256: ${SHA256}"
-
-      - name: Create Homebrew PR
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
-          commit-message: "animepahe-dl: update to ${{ needs.release.outputs.tag }}"
-          title: "animepahe-dl: update to ${{ needs.release.outputs.tag }}"
-          body: |
-            Automated update of animepahe-dl to version ${{ needs.release.outputs.tag }}
-
-            - Updated version to ${{ needs.release.outputs.tag }}
-            - Updated SHA256 checksum
-
-            This PR was automatically created by the release workflow.
-          branch: update-animepahe-dl-${{ needs.release.outputs.tag }}
-          base: main
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: [release, build-binaries, build-appimage, build-snap, build-flatpak]
+    needs: [release, build-windows, build-linux, build-macos, build-appimage, build-snap, update-homebrew]
     if: needs.release.outputs.released == 'true'
     permissions:
-      contents: read
-      id-token: write
+      contents: write
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v6
-
-      - name: Download | Artifacts
-        uses: actions/download-artifact@v6
+      - name: Download distribution artifacts (sdist/wheel)
+        uses: actions/download-artifact@v7
         with:
           name: distribution-artifacts
-          path: dist
+          path: release-assets/dist
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.13.0
+      - name: Download Windows binary
+        uses: actions/download-artifact@v7
         with:
-          packages-dir: dist
-          print-hash: true
-          verbose: true
+          name: binary-windows
+          path: release-assets/bin
 
-      - name: Check PKGBUILD
-        run: ls -lah ./PKGBUILD
+      - name: Download Linux binary
+        uses: actions/download-artifact@v7
+        with:
+          name: binary-linux
+          path: release-assets/bin
 
-      - name: Update PKGBUILD version
+      - name: Download macOS binary
+        uses: actions/download-artifact@v7
+        with:
+          name: binary-macos
+          path: release-assets/bin
+
+      - name: Download AppImage
+        uses: actions/download-artifact@v7
+        with:
+          name: appimage
+          path: release-assets/appimage
+
+      - name: Download Snap
+        uses: actions/download-artifact@v7
+        with:
+          name: snap
+          path: release-assets/snap
+
+      - name: Rename assets with version tag
         run: |
-          tag='${{ needs.release.outputs.tag }}'
-          # semantic-release typically prefixes with v (e.g., v1.2.3); strip it for pkgver
-          clean_tag="${tag#v}"
-          echo "Semantic-release tag: $tag -> pkgver: $clean_tag"
-          if [ -z "$clean_tag" ]; then
-            echo "Error: Clean tag is empty; aborting PKGBUILD update." >&2
-            exit 1
-          fi
-          # Update pkgver line
-          sed -i "s/^pkgver=.*/pkgver=${clean_tag}/" PKGBUILD
-          # Reset pkgrel on new upstream version
-          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
-          # Ensure source line reflects new tag (still uses v prefix in the fetched tag URL)
-          # Use '|' as sed delimiter to avoid conflict with '#' in replacement (git source fragment '#tag=')
-          sed -i "s|^source=.*|source=(\"git+https://github.com/ayushjaipuriyar/animepahe-dl.git#tag=v${clean_tag}\")|" PKGBUILD
-          echo 'Updated PKGBUILD:'
-          grep -E '^(pkgver|pkgrel|source)=' PKGBUILD
+          TAG="${{ needs.release.outputs.tag }}"
+          CLEAN_TAG="${TAG#v}"
 
-      - name: Publish AUR Package
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+          echo "Tag: $TAG"
+          echo "Clean tag: $CLEAN_TAG"
+
+          mkdir -p release-assets/final
+
+          # Binaries
+          if [ -f "release-assets/bin/animepahe-dl-windows.exe" ]; then
+            mv release-assets/bin/animepahe-dl-windows.exe release-assets/final/animepahe-dl-${TAG}-windows.exe
+          fi
+
+          if [ -f "release-assets/bin/animepahe-dl-linux" ]; then
+            mv release-assets/bin/animepahe-dl-linux release-assets/final/animepahe-dl-${TAG}-linux
+          fi
+
+          if [ -f "release-assets/bin/animepahe-dl-macos" ]; then
+            mv release-assets/bin/animepahe-dl-macos release-assets/final/animepahe-dl-${TAG}-macos
+          fi
+
+          # AppImage
+          if [ -f "release-assets/appimage/animepahe-dl-x86_64.AppImage" ]; then
+            mv release-assets/appimage/animepahe-dl-x86_64.AppImage release-assets/final/animepahe-dl-${TAG}-x86_64.AppImage
+          fi
+
+          # Snap (whatever name it produced)
+          SNAP_FILE="$(find release-assets/snap -type f -name '*.snap' | head -n 1 || true)"
+          if [ -n "$SNAP_FILE" ]; then
+            mv "$SNAP_FILE" "release-assets/final/animepahe-dl-${TAG}.snap"
+          fi
+
+          # Keep dist as-is (wheel + sdist already include version)
+          cp -v release-assets/dist/* release-assets/final/ || true
+
+          echo "=== Final assets ==="
+          ls -lah release-assets/final
+
+      - name: Upload assets to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          pkgname: animepahe-dl
-          pkgbuild: ./PKGBUILD
-          commit_username: ${{ secrets.AUR_USERNAME }}
-          commit_email: ${{ secrets.AUR_EMAIL }}
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: Update AUR package
-          ssh_keyscan_types: rsa,ecdsa,ed25519
+          tag_name: ${{ needs.release.outputs.tag }}
+          files: |
+            release-assets/final/*
