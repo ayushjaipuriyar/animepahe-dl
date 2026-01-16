@@ -43,7 +43,6 @@ jobs:
           wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool
           ./appimagetool --appimage-extract
-          mv squashfs-root appimagetool.AppDir
 
           # Create AppDir structure
           mkdir -p AppDir/usr/bin
@@ -53,8 +52,8 @@ jobs:
           # Copy binary
           cp dist/animepahe-dl AppDir/usr/bin/
 
-          # Create desktop file
-          cat > AppDir/usr/share/applications/animepahe-dl.desktop << EOF
+          # Create desktop file (must be named exactly as in Icon field with .desktop extension)
+          cat > AppDir/animepahe-dl.desktop << EOF
           [Desktop Entry]
           Type=Application
           Name=AnimePahe Downloader
@@ -76,8 +75,8 @@ jobs:
           EOF
           chmod +x AppDir/AppRun
 
-          # Build AppImage
-          ./appimagetool.AppDir/AppRun AppDir animepahe-dl-x86_64.AppImage
+          # Build AppImage using the extracted appimagetool
+          ./squashfs-root/AppRun AppDir animepahe-dl-x86_64.AppImage
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v6
