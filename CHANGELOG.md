@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.8.1 (2026-01-16)
+
+### Bug Fixes
+
+- Attestations issues with pypi
+  ([`53396e4`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/53396e4c1be0f56068a64a132446895bf165c8ca))
+
+
 ## v5.8.0 (2026-01-16)
 
 ### Bug Fixes
