@@ -772,7 +772,7 @@ def main():
                 )
                 logger.info("Installation suggestions:")
                 logger.info("  Ubuntu/Debian: sudo apt install mpv")
-                logger.info("  macOS: brew install mpv")
+                logger.info("  macOS: install mpv via your package manager")
                 logger.info("  Windows: Download from https://mpv.io/")
                 return
 

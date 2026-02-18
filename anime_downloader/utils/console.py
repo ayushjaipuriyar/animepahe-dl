@@ -15,6 +15,8 @@ from rich.tree import Tree
 from typing import List, Dict, Any, Optional
 import time
 
+from .version import get_app_version
+
 # Global console instance
 console = Console()
 
@@ -62,7 +64,7 @@ class RichProgress:
 def print_banner():
     """Print application banner."""
     banner = Text("AnimePahe Downloader", style="bold blue")
-    banner.append(" v5.4.0", style="dim")
+    banner.append(f" v{get_app_version()}", style="dim")
     console.print(Panel(banner, expand=False))
 
 

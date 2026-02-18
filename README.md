@@ -64,7 +64,6 @@ Pre-built binaries are available for all major platforms:
 | **Linux** | [AppImage](https://github.com/ayushjaipuriyar/animepahe-dl/releases/latest) | `./animepahe-dl-x86_64.AppImage` |
 | **Linux** | Snap Store | `sudo snap install animepahe-dl` |
 | **Linux** | Flatpak | `flatpak install animepahe-dl.flatpak` |
-| **macOS** | Homebrew | `brew install animepahe-dl` |
 | **Arch Linux** | AUR | `yay -S animepahe-dl` |
 
 📖 **[Complete Binary Installation Guide](docs/BINARY_RELEASES.md)**
@@ -78,16 +77,16 @@ Before installing, ensure you have the following dependencies on your system:
 *   **Python 3.8+**: [Download Python](https://www.python.org/downloads/)
 *   **ffmpeg**: Essential for merging video segments.
     *   **Windows**: Download from [ffmpeg.org](https://ffmpeg.org/download.html) and add to your system's PATH.
-    *   **macOS**: `brew install ffmpeg`
+    *   **macOS**: Install via your package manager or download from [ffmpeg.org](https://ffmpeg.org/download.html).
     *   **Linux**: `sudo apt update && sudo apt install ffmpeg` (or use your distro's package manager).
 *   **fzf**: Required for the interactive anime selection in the CLI.
     *   **Windows**: Download from the [fzf GitHub releases](https://github.com/junegunn/fzf/releases) and add to your PATH.
-    *   **macOS**: `brew install fzf`
+    *   **macOS**: Install via your package manager or download from the [fzf releases](https://github.com/junegunn/fzf/releases).
     *   **Linux**: `sudo apt update && sudo apt install fzf` (or use your distro's package manager).
 *   **Node.js**: Required for an internal dependency.
     *   [Download Node.js](https://nodejs.org/en/download/) or use a package manager.
 *   **Media Player** (for streaming): Required only if you want to use the `--play` feature.
-    *   **mpv** (recommended): `sudo apt install mpv` (Linux), `brew install mpv` (macOS), or download from [mpv.io](https://mpv.io/)
+    *   **mpv** (recommended): `sudo apt install mpv` (Linux), install via your package manager on macOS, or download from [mpv.io](https://mpv.io/)
     *   **VLC**: Download from [videolan.org](https://www.videolan.org/)
     *   **ffplay** (part of FFmpeg): Usually installed with ffmpeg
     *   **mplayer**: Available in most package managers

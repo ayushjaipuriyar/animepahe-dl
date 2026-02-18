@@ -32,6 +32,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QKeySequence, QShortcut, QFont, QPalette, QColor, QIcon, QPixmap, QAction
 
 from ..utils import constants, config_manager
+from ..utils.version import get_app_version
 from ..api import AnimePaheAPI, Downloader
 from ..core.signal_handler import setup_signal_handling, register_shutdown_callback
 from .workers import EpisodeWorker, DownloadWorker, UpdateCacheWorker, MultiAnimeDownloadWorker
@@ -579,7 +580,7 @@ class MainWindow(QMainWindow):
                 "• mplayer\n\n"
                 "Installation suggestions:\n"
                 "• Ubuntu/Debian: sudo apt install mpv\n"
-                "• macOS: brew install mpv\n"
+                "• macOS: install mpv via your package manager\n"
                 "• Windows: Download from https://mpv.io/"
             )
             return
@@ -1131,7 +1132,7 @@ def run_gui():
 
     # Set application properties
     app.setApplicationName("AnimePahe Downloader")
-    app.setApplicationVersion("5.4.0")
+    app.setApplicationVersion(get_app_version())
     app.setOrganizationName("AnimePahe-DL")
 
     window = MainWindow()
