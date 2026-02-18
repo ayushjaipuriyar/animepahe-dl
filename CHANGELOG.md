@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.9.1 (2026-02-18)
+
+### Bug Fixes
+
+- Stabilize binary and appimage builds
+  ([`32104e5`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/32104e5444345613cb14fad6c16d723c17fcf1d7))
+
+
 ## v5.9.0 (2026-01-16)
 
 ### Bug Fixes

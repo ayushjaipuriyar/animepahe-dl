@@ -9,7 +9,7 @@ from importlib.metadata import PackageNotFoundError, version as get_version
 try:
 	__version__ = get_version("animepahe-dl")
 except PackageNotFoundError:
-	__version__ = "0.0.0"
+	__version__ = "5.9.1"
 
 # Main entry points
 from .main import main
