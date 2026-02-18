@@ -3,11 +3,16 @@ name: Build AppImage
 on:
   workflow_call:
     inputs:
-      python-version:
-        description: 'Python version to use'
+      binary-artifact:
+        description: 'Artifact name containing the Linux binary'
         required: false
         type: string
-        default: '3.11'
+        default: 'binary-linux'
+      binary-file:
+        description: 'Binary filename inside the artifact'
+        required: false
+        type: string
+        default: 'animepahe-dl-linux'
 
 jobs:
   build-appimage:
@@ -17,21 +22,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7.2.0
+      - name: Download Linux binary artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.binary-artifact }}
+          path: dist
 
-      - name: Set up Python ${{ inputs.python-version }}
-        run: uv python install ${{ inputs.python-version }}
-
-      - name: Install dependencies
-        run: uv sync --dev
-
-      - name: Install PyInstaller
-        run: uv add --dev pyinstaller
-
-      - name: Build binary
+      - name: Prepare binary
         run: |
-          uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
+          mv "dist/${{ inputs.binary-file }}" dist/animepahe-dl
+          chmod +x dist/animepahe-dl
 
       - name: Create AppImage
         run: |

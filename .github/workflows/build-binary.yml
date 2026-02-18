@@ -20,6 +20,28 @@ on:
         required: false
         type: string
         default: '3.11'
+  workflow_dispatch:
+    inputs:
+      os:
+        description: 'Operating system to build for'
+        required: true
+        default: 'windows-latest'
+        type: string
+      target:
+        description: 'Target platform name'
+        required: true
+        default: 'windows'
+        type: string
+      artifact-name:
+        description: 'Name of the artifact file'
+        required: true
+        default: 'animepahe-dl-windows.exe'
+        type: string
+      python-version:
+        description: 'Python version to use'
+        required: false
+        default: '3.11'
+        type: string
 
 jobs:
   build-binary:
@@ -38,9 +60,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
 
-      - name: Install PyInstaller
-        run: uv add --dev pyinstaller
-
       - name: Build binary (Windows)
         if: inputs.target == 'windows'
         shell: bash
@@ -48,7 +67,7 @@ jobs:
           if [ -f animepahe-dl.spec ]; then
             uv run pyinstaller animepahe-dl.spec
           else
-            uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
+            uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/__main__.py
           fi
           mv dist/animepahe-dl.exe dist/${{ inputs.artifact-name }}
 
@@ -58,7 +77,7 @@ jobs:
           if [ -f animepahe-dl.spec ]; then
             uv run pyinstaller animepahe-dl.spec
           else
-            uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/main.py
+            uv run pyinstaller --onefile --name animepahe-dl --console anime_downloader/__main__.py
           fi
           mv dist/animepahe-dl dist/${{ inputs.artifact-name }}
 

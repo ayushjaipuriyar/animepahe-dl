@@ -95,9 +95,12 @@ jobs:
       artifact-name: animepahe-dl-macos
 
   build-appimage:
-    needs: release
+    needs: [release, build-linux]
     if: needs.release.outputs.released == 'true'
     uses: ./.github/workflows/build-appimage.yml
+    with:
+      binary-artifact: binary-linux
+      binary-file: animepahe-dl-linux
 
   build-snap:
     needs: release
