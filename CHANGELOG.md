@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v5.10.0 (2026-02-20)
+
+### Chores
+
+- Remove homebrew support and fix version display
+  ([`b84c2ed`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/b84c2edf38c654c7f4e3cf535f78af0c386da9b7))
+
+- Remove homebrew support and fix version display
+  ([`5ec1edc`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/5ec1edce23ea4c0be83eff5d7d8a5887c566ec79))
+
+
 ## v5.9.1 (2026-02-18)
 
 ### Bug Fixes
