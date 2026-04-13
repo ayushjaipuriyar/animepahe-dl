@@ -45,7 +45,7 @@ jobs:
           grep -E '^(pkgver|pkgrel|source)=' PKGBUILD
 
       - name: Publish AUR Package
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.2
         with:
           pkgname: animepahe-dl
           pkgbuild: ./PKGBUILD
