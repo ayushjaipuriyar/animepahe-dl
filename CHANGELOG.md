@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v5.10.1 (2026-05-16)
+
+### Bug Fixes
+
+- Follow through links on startup
+  ([`a99a7c1`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/a99a7c119e9586006db01d203ba3f32a3ed318d8))
+
+
 ## v5.10.0 (2026-02-20)
 
 ### Chores
