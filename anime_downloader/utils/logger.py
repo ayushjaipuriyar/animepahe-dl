@@ -10,6 +10,7 @@ To use the logger in any module, simply import it:
 """
 
 import sys
+
 from loguru import logger
 
 # Remove the default handler to prevent duplicate outputs

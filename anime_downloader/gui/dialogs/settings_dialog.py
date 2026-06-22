@@ -5,23 +5,23 @@ This module contains the settings dialog window that allows users to
 configure application settings like download directory, quality, etc.
 """
 
-from PyQt6.QtWidgets import (
-    QDialog,
-    QFormLayout,
-    QLineEdit,
-    QPushButton,
-    QComboBox,
-    QSpinBox,
-    QDialogButtonBox,
-    QLabel,
-    QHBoxLayout,
-    QMessageBox,
-    QFileDialog,
-)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+)
 
-from ...utils import constants, config_manager
+from ...utils import config_manager, constants
 
 
 class SettingsDialog(QDialog):
@@ -41,7 +41,7 @@ class SettingsDialog(QDialog):
 
         # Apply theme-aware styling to the dialog
         is_dark_theme = self.parent()._detect_dark_theme() if self.parent() else False
-        
+
         if is_dark_theme:
             bg_color = "#1e1e1e"
             surface_color = "#2d2d2d"
@@ -60,8 +60,9 @@ class SettingsDialog(QDialog):
             accent_color = "#0078d4"
             button_color = "#f8f9fa"
             hover_color = "#e9ecef"
-        
-        self.setStyleSheet(f"""
+
+        self.setStyleSheet(
+            f"""
             QDialog {{
                 background-color: {bg_color};
                 color: {text_color};
@@ -102,12 +103,13 @@ class SettingsDialog(QDialog):
                 color: {text_color};
                 selection-background-color: {accent_color};
             }}
-        """)
+        """
+        )
 
         layout = QFormLayout(self)
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
-        
+
         # Add a title
         title_label = QLabel("⚙️ Settings")
         title_font = QFont()
@@ -154,6 +156,20 @@ class SettingsDialog(QDialog):
         self.concurrent_spinbox.setToolTip("Number of episodes to download simultaneously")
         layout.addRow("📥 Concurrent Downloads:", self.concurrent_spinbox)
 
+        # --- Cloudfare Clearance Setting ---
+        self.cf_clearance_edit = QLineEdit(self.config.get("cf_clearance", ""))
+        self.cf_clearance_edit.setPlaceholderText("")
+        self.cf_clearance_edit.setToolTip(
+            "The Cloudflare clearance token for the AnimePahe website"
+        )
+        layout.addRow("🌐 Cloudflare Clearance:", self.cf_clearance_edit)
+
+        # --- User Agent Setting ---
+        self.user_agent_edit = QLineEdit(self.config.get("user_agent", ""))
+        self.user_agent_edit.setPlaceholderText("")
+        self.user_agent_edit.setToolTip("The user agent string for the AnimePahe website")
+        layout.addRow("🕵️ User Agent:", self.user_agent_edit)
+
         # --- Download Directory Setting ---
         dir_layout = QHBoxLayout()
         self.download_dir_edit = QLineEdit(self.config.get("download_directory"))
@@ -188,14 +204,16 @@ class SettingsDialog(QDialog):
         self.config["audio"] = self.audio_combo.currentText()
         self.config["threads"] = self.threads_spinbox.value()
         self.config["concurrent_downloads"] = self.concurrent_spinbox.value()
+        self.config["cf_clearance"] = self.cf_clearance_edit.text().strip()
+        self.config["user_agent"] = self.user_agent_edit.text().strip()
         self.config["download_directory"] = self.download_dir_edit.text()
         config_manager.save_config(self.config)
-        
+
         # Update the base URL in constants if it changed
         if self.config["base_url"] != constants.get_base_url():
             try:
                 constants.set_base_url(self.config["base_url"])
             except Exception as e:
                 QMessageBox.warning(self, "URL Update", f"Base URL updated but may be invalid: {e}")
-        
+
         super().accept()

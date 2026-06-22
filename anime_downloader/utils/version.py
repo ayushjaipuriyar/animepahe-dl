@@ -2,10 +2,11 @@
 Version helpers for runtime display.
 """
 
-from importlib.metadata import PackageNotFoundError, version as get_version
-from pathlib import Path
 import re
 import tomllib
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as get_version
+from pathlib import Path
 
 
 def _read_version_from_init() -> str:

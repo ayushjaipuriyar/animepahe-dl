@@ -9,24 +9,28 @@ process.
 import argparse
 import datetime
 import json
-import subprocess
 import os
 import shutil
+import signal
+import subprocess
 import sys
 import time
-import signal
-from typing import Any, Dict, List, Optional, Set
-from tqdm import tqdm
-from pyfzf.pyfzf import FzfPrompt
-import questionary
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional, Set
 
+import questionary
 from plyer import notification
-from ..utils import constants, config_manager, helper
+from pyfzf.pyfzf import FzfPrompt
+from tqdm import tqdm
+
 from ..api import AnimePaheAPI, Downloader
+from ..core.signal_handler import (
+    is_shutdown_requested,
+    register_shutdown_callback,
+    setup_signal_handling,
+)
 from ..models import Anime, Episode
-from ..utils import logger
-from ..core.signal_handler import setup_signal_handling, register_shutdown_callback, is_shutdown_requested
+from ..utils import config_manager, constants, helper, logger
 
 
 def get_anime_dir(anime_name: str, download_dir: str) -> str:
@@ -109,7 +113,9 @@ def detect_media_player(preferred_player: str = "") -> Optional[str]:
         if shutil.which(preferred_player):
             return preferred_player
         else:
-            logger.warning(f"Specified player '{preferred_player}' not found. Trying alternatives...")
+            logger.warning(
+                f"Specified player '{preferred_player}' not found. Trying alternatives..."
+            )
 
     # Try each player in order
     for player in players:
@@ -128,7 +134,7 @@ def play_episode_stream(
     ep_session: str,
     quality: str,
     audio: str,
-    player: str
+    player: str,
 ):
     """
     Plays an episode directly using the m3u8 stream.
@@ -337,9 +343,7 @@ def select_episodes(anime: Anime) -> List[int]:
 
     logger.info(f"Episodes available: {min_ep}-{max_ep}")
     if downloaded_eps:
-        logger.info(
-            f"Already downloaded: {', '.join(map(str, sorted(list(downloaded_eps))))}"
-        )
+        logger.info(f"Already downloaded: {', '.join(map(str, sorted(list(downloaded_eps))))}")
 
     selection_str = questionary.text(
         "Enter episodes to download (e.g., 1, 3, 5-10):",
@@ -413,9 +417,7 @@ def download_single_episode(
         # 5. Compile the downloaded segments into a single video file
         output_path = get_video_path(anime_name, ep_num, download_dir)
         # For CLI, we can create a simple tqdm progress bar for compilation
-        with tqdm(
-            total=100, desc=f"Compiling Ep. {ep_num}", unit="%", leave=False
-        ) as pbar:
+        with tqdm(total=100, desc=f"Compiling Ep. {ep_num}", unit="%", leave=False) as pbar:
 
             def update_pbar(percent):
                 pbar.n = int(percent)
@@ -438,7 +440,7 @@ def download_single_episode(
                 title="Animepahe-dl",
                 message=f"Finished downloading Ep {ep_num} of {anime_name}",
                 app_name="Animepahe Downloader",
-                timeout=10
+                timeout=10,
             )
         except Exception as e:
             logger.warning(f"Failed to send notification: {e}")
@@ -475,9 +477,7 @@ def run_update_check(
             ep_session = episode_data["session"]
 
             # Check if already downloaded
-            video_path = get_video_path(
-                anime_name, ep_num, app_config["download_directory"]
-            )
+            video_path = get_video_path(anime_name, ep_num, app_config["download_directory"])
             if not os.path.exists(video_path):
                 logger.success(f"Found new episode: {anime_name} - Episode {ep_num}")
                 download_queue.append(
@@ -501,7 +501,7 @@ def run_update_check(
             title="Animepahe-dl - New Episodes",
             message=f"Found {len(download_queue)} new episodes to download",
             app_name="Animepahe Downloader",
-            timeout=10
+            timeout=10,
         )
     except Exception as e:
         logger.warning(f"Failed to send notification: {e}")
@@ -517,7 +517,7 @@ def run_update_check(
             title="Animepahe-dl - Update Complete",
             message=f"Downloaded {len(download_queue)} new episodes",
             app_name="Animepahe Downloader",
-            timeout=10
+            timeout=10,
         )
     except Exception as e:
         logger.warning(f"Failed to send notification: {e}")
@@ -532,9 +532,7 @@ def manage_my_list():
             current_list = [line.strip() for line in f]
             fzf = FzfPrompt()
             # Use fzf to select items to remove
-            to_remove = fzf.prompt(
-                current_list, "--multi --prompt 'Select anime to REMOVE > '"
-            )
+            to_remove = fzf.prompt(current_list, "--multi --prompt 'Select anime to REMOVE > '")
 
             if to_remove:
                 updated_list = [item for item in current_list if item not in to_remove]
@@ -607,9 +605,7 @@ def main():
         action="store_true",
         help="Check for new episodes of anime in your list.",
     )
-    parser.add_argument(
-        "--manage", action="store_true", help="Manage your personal anime list."
-    )
+    parser.add_argument("--manage", action="store_true", help="Manage your personal anime list.")
     # Determine SSL verification preference
     # (Argument parsed below; temporarily store to apply after parse.)
     parser.add_argument(
@@ -669,7 +665,8 @@ def main():
         help="Search for anime without downloading.",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging for debugging.",
     )
@@ -685,22 +682,26 @@ def main():
     # Set verbose logging if requested
     if args.verbose:
         import logging
+
         logging.basicConfig(level=logging.DEBUG)
         logger.info("Verbose logging enabled")
 
     # Handle special commands first
     if args.install_completions:
         from .completions import install_completions
+
         install_completions()
         return
 
     if args.config:
         from ..utils.console import print_config_info
+
         print_config_info(app_config)
         return
 
     if args.history:
         from ..utils.console import console
+
         console.print("[dim]Download history feature coming soon![/dim]")
         return
 
@@ -736,16 +737,19 @@ def main():
     elif args.daemon:
         # Daemon mode - run as background service
         from ..services.daemon_service import run_daemon_command
+
         run_daemon_command("start")
     elif args.daemon_action:
         # Daemon management commands
         from ..services.daemon_service import run_daemon_command
+
         run_daemon_command(args.daemon_action)
     elif args.search_only:
         # Search-only mode
         selected_anime_list = choose_anime(api, args.name, cache_count, multi=not args.single)
         if selected_anime_list:
             from ..utils.console import print_anime_table
+
             print_anime_table(selected_anime_list)
         return
     elif any([args.name, args.episodes, args.updates, args.single, args.cli]):
@@ -893,10 +897,7 @@ def main():
                     max_ep = ep_num
                 # Check if the final video file already exists
                 video_path = get_video_path(anime_name, ep_num, download_dir)
-                episode = Episode(
-                    number=ep_num,
-                    session=ep_data["session"]
-                )
+                episode = Episode(number=ep_num, session=ep_data["session"])
                 # Set download status based on file existence
                 if os.path.exists(video_path):
                     episode.mark_as_downloaded(video_path)
@@ -914,7 +915,9 @@ def main():
                 logger.info(f"No episodes selected for {anime_name}.")
                 continue
 
-            logger.info(f"Selected Episodes for {anime_name}: {', '.join(map(str, episodes_to_download))}")
+            logger.info(
+                f"Selected Episodes for {anime_name}: {', '.join(map(str, episodes_to_download))}"
+            )
 
             # 6. Queue episodes for download
             for ep_num in episodes_to_download:
@@ -923,15 +926,19 @@ def main():
                     logger.warning(f"Episode {ep_num} not found for {anime_name}.")
                     continue
                 if episode.is_downloaded:
-                    logger.success(f"✓ Resuming: {anime_name} Episode {ep_num} already downloaded. Skipping.")
+                    logger.success(
+                        f"✓ Resuming: {anime_name} Episode {ep_num} already downloaded. Skipping."
+                    )
                     continue
 
-                all_download_tasks.append({
-                    "name": anime.name,
-                    "slug": anime.slug,
-                    "episode_num": episode.number,
-                    "episode_session": episode.session,
-                })
+                all_download_tasks.append(
+                    {
+                        "name": anime.name,
+                        "slug": anime.slug,
+                        "episode_num": episode.number,
+                        "episode_session": episode.session,
+                    }
+                )
 
         # 7. Download all queued episodes concurrently
         if not all_download_tasks:
@@ -939,7 +946,9 @@ def main():
             return
 
         logger.info(f"\n{'='*60}")
-        logger.info(f"Starting download of {len(all_download_tasks)} episode(s) across {len(selected_anime_list)} anime")
+        logger.info(
+            f"Starting download of {len(all_download_tasks)} episode(s) across {len(selected_anime_list)} anime"
+        )
         logger.info(f"{'='*60}\n")
 
         # Register shutdown callback to cancel downloads
@@ -984,7 +993,9 @@ def main():
                             logger.info("Shutdown requested, stopping download processing")
                             break
 
-                        task = future_to_task.get(future, {"name": "Unknown", "episode_num": "Unknown"})
+                        task = future_to_task.get(
+                            future, {"name": "Unknown", "episode_num": "Unknown"}
+                        )
                         anime_name = task.get("name", "Unknown")
                         episode_num = task.get("episode_num", "Unknown")
 
@@ -994,22 +1005,31 @@ def main():
                         except Exception as e:
                             error_msg = str(e)
                             if "Segment download failed" in error_msg:
-                                logger.error(f"An episode download failed: {anime_name} Episode {episode_num} - Some segments could not be downloaded")
+                                logger.error(
+                                    f"An episode download failed: {anime_name} Episode {episode_num} - Some segments could not be downloaded"
+                                )
                             elif "Video compilation failed" in error_msg:
-                                logger.error(f"An episode download failed: {anime_name} Episode {episode_num} - Video compilation failed")
+                                logger.error(
+                                    f"An episode download failed: {anime_name} Episode {episode_num} - Video compilation failed"
+                                )
                             else:
-                                logger.error(f"An episode download failed: {anime_name} Episode {episode_num}")
+                                logger.error(
+                                    f"An episode download failed: {anime_name} Episode {episode_num}"
+                                )
                                 logger.error(f"Error details: {error_msg}")
 
                             if args.verbose:
                                 import traceback
+
                                 logger.error(f"Full traceback: {traceback.format_exc()}")
                             failed_downloads.append(f"{anime_name} Episode {episode_num}")
                         pbar.update(1)
 
                     if failed_downloads:
                         logger.warning(f"Failed downloads: {', '.join(failed_downloads)}")
-                        logger.info("You can retry these episodes later - they will resume from where they left off.")
+                        logger.info(
+                            "You can retry these episodes later - they will resume from where they left off."
+                        )
 
         except KeyboardInterrupt:
             logger.info("Download interrupted by user")
@@ -1021,4 +1041,5 @@ def main():
     else:
         # Default: Launch interactive mode
         from .interactive import run_interactive_mode
+
         run_interactive_mode()

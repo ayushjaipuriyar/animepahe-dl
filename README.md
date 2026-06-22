@@ -286,7 +286,9 @@ You can manually edit `config.json` to change defaults for quality, audio, threa
   "threads": 100,
   "download_directory": "/home/user/Videos/Anime",
   "update_interval_hours": 1,
-  "allow_insecure_ssl": true
+  "allow_insecure_ssl": true,
+  "cf_clearance": "",
+  "user_agent": ""
 }
 ```
 
