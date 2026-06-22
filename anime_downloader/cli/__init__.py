@@ -8,4 +8,4 @@ commands, interactive mode, and shell completions.
 from .commands import main as cli_main
 from .interactive import run_interactive_mode
 
-__all__ = ['cli_main', 'run_interactive_mode']
+__all__ = ["cli_main", "run_interactive_mode"]

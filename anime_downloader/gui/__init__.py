@@ -7,4 +7,4 @@ the main window, dialogs, widgets, and worker threads.
 
 from .main_window import run_gui
 
-__all__ = ['run_gui']
+__all__ = ["run_gui"]

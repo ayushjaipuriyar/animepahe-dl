@@ -36,8 +36,14 @@ class AnimePaheAPI:
         self.verify_ssl = False  # Force insecure
         self._insecure_fallback_used = True
 
-        # Generate session cookie like the bash script
-        self.session_cookie = self._generate_session_cookie()
+        self.config = config_manager.load_config()
+
+        cf_clearance = self.config.get("cf_clearance", "").strip()
+
+        if cf_clearance:
+            self.session_cookie = f"cf_clearance={cf_clearance}"
+        else:
+            self.session_cookie = self._generate_session_cookie()
 
         self.http = self._build_pool(False)
         # Suppress urllib3 insecure request warnings since user explicitly forced insecure mode
@@ -59,6 +65,11 @@ class AnimePaheAPI:
     def _build_pool(self, verify: bool):
         # Add cookie to headers
         headers = constants.HTTP_HEADERS.copy()
+
+        user_agent = self.config.get("user_agent", "")
+        if user_agent:
+            headers["User-Agent"] = user_agent
+
         headers["Cookie"] = self.session_cookie
 
         if verify:
@@ -74,7 +85,9 @@ class AnimePaheAPI:
     def _capture_set_cookie_headers(self, response: Any) -> None:
         """Capture cookies from a response and rebuild the pool if they changed."""
         try:
-            set_cookie_hdr = response.headers.get("set-cookie") or response.headers.get("Set-Cookie")
+            set_cookie_hdr = response.headers.get("set-cookie") or response.headers.get(
+                "Set-Cookie"
+            )
             if not set_cookie_hdr:
                 return
 
@@ -135,7 +148,9 @@ class AnimePaheAPI:
                         return retry_url
 
             cookie_domain = None
-            set_cookie_hdr = response.headers.get("set-cookie") or response.headers.get("Set-Cookie")
+            set_cookie_hdr = response.headers.get("set-cookie") or response.headers.get(
+                "Set-Cookie"
+            )
             if set_cookie_hdr:
                 match = re.search(r"Domain=([^;\s,]+)", set_cookie_hdr, re.IGNORECASE)
                 if match:
@@ -146,9 +161,7 @@ class AnimePaheAPI:
                 constants.set_base_url(new_base)
                 logger.info(f"Startup probe discovered cookie host: {new_base}")
                 if parsed_probe.path and parsed_probe.path != "/":
-                    retry_url = urlunparse(
-                        parsed_probe._replace(netloc=cookie_domain)
-                    )
+                    retry_url = urlunparse(parsed_probe._replace(netloc=cookie_domain))
                     logger.info(f"Startup probe will retry on: {retry_url}")
                     return retry_url
 
@@ -248,7 +261,9 @@ class AnimePaheAPI:
                         snippet = body[:400].decode("utf-8", errors="replace")
                     except Exception:
                         snippet = str(body)[:400]
-                    logger.warning(f"Received status code {status} for {url}. Headers: {dict(response.headers)} Body snippet: {snippet}")
+                    logger.warning(
+                        f"Received status code {status} for {url}. Headers: {dict(response.headers)} Body snippet: {snippet}"
+                    )
                 except Exception:
                     logger.warning(f"Received status code {status} for {url}.")
                 try:

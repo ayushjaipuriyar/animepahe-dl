@@ -7,8 +7,9 @@ This module provides shell completion functionality for bash, zsh, and fish.
 import os
 import sys
 from typing import List, Optional
-from ..utils.config_manager import load_config
+
 from ..api import AnimePaheAPI
+from ..utils.config_manager import load_config
 
 
 def get_anime_suggestions(incomplete: str = "") -> List[str]:
@@ -17,7 +18,7 @@ def get_anime_suggestions(incomplete: str = "") -> List[str]:
         # Load from cache if available
         cache_file = os.path.join(os.path.expanduser("~/.config/anime_downloader"), "animelist.txt")
         if os.path.exists(cache_file):
-            with open(cache_file, 'r', encoding='utf-8') as f:
+            with open(cache_file, "r", encoding="utf-8") as f:
                 anime_list = []
                 for line in f:
                     if "::::" in line:
@@ -42,7 +43,7 @@ def get_audio_options() -> List[str]:
 
 def generate_bash_completion() -> str:
     """Generate bash completion script."""
-    return '''
+    return """
 _animepahe_dl_completion() {
     local cur prev opts
     COMPREPLY=()
@@ -73,12 +74,12 @@ _animepahe_dl_completion() {
 }
 
 complete -F _animepahe_dl_completion animepahe-dl
-'''
+"""
 
 
 def generate_zsh_completion() -> str:
     """Generate zsh completion script."""
-    return '''
+    return """
 #compdef animepahe-dl
 
 _animepahe_dl() {
@@ -103,31 +104,31 @@ _animepahe_dl() {
 }
 
 _animepahe_dl "$@"
-'''
+"""
 
 
 def install_completions():
     """Install shell completions."""
-    shell = os.environ.get('SHELL', '').split('/')[-1]
-    
-    if shell == 'bash':
+    shell = os.environ.get("SHELL", "").split("/")[-1]
+
+    if shell == "bash":
         completion_dir = os.path.expanduser("~/.bash_completion.d")
         os.makedirs(completion_dir, exist_ok=True)
         completion_file = os.path.join(completion_dir, "animepahe-dl")
-        with open(completion_file, 'w') as f:
+        with open(completion_file, "w") as f:
             f.write(generate_bash_completion())
         print(f"Bash completion installed to {completion_file}")
         print("Add 'source ~/.bash_completion.d/animepahe-dl' to your ~/.bashrc")
-    
-    elif shell == 'zsh':
+
+    elif shell == "zsh":
         completion_dir = os.path.expanduser("~/.zsh/completions")
         os.makedirs(completion_dir, exist_ok=True)
         completion_file = os.path.join(completion_dir, "_animepahe-dl")
-        with open(completion_file, 'w') as f:
+        with open(completion_file, "w") as f:
             f.write(generate_zsh_completion())
         print(f"Zsh completion installed to {completion_file}")
         print("Add 'fpath=(~/.zsh/completions $fpath)' to your ~/.zshrc")
-    
+
     else:
         print(f"Shell completions not supported for {shell}")
         print("Supported shells: bash, zsh")
