@@ -4,6 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+playwright = "*"
+curl_cffi = "*"
 beautifulsoup4 = "*"
 pyfzf = "*"
 pycryptodome = "*"

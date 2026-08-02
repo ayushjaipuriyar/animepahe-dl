@@ -352,14 +352,15 @@ class Downloader:
         )
 
         # Parse ffmpeg's stdout to calculate progress
-        for line in iter(process.stdout.readline, ""):
-            if "time=" in line and total_duration > 0 and progress_callback:
-                match = re.search(r"time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})", line)
-                if match:
-                    h, m, s, ms = map(int, match.groups())
-                    current_time = h * 3600 + m * 60 + s + ms / 100
-                    percent = int((current_time / total_duration) * 100)
-                    progress_callback(min(percent, 100))
+        if process.stdout is not None:
+            for line in iter(process.stdout.readline, ""):
+                if "time=" in line and total_duration > 0 and progress_callback:
+                    match = re.search(r"time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})", line)
+                    if match:
+                        h, m, s, ms = map(int, match.groups())
+                        current_time = h * 3600 + m * 60 + s + ms / 100
+                        percent = int((current_time / total_duration) * 100)
+                        progress_callback(min(percent, 100))
 
         process.wait()
 

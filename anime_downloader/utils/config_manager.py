@@ -27,6 +27,7 @@ DEFAULT_CONFIG = {
     # Cloudflare support
     "cf_clearance": "",
     "user_agent": "",
+    "cookie_file": "",
 }
 
 
