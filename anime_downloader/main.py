@@ -7,9 +7,10 @@ interface (CLI) or the graphical user interface (GUI) based on the
 command-line arguments provided.
 """
 
-import sys
 import argparse
-from .utils import constants, config_manager, logger
+import sys
+
+from .utils import config_manager, constants, logger
 
 
 def main():

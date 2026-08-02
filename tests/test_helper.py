@@ -1,5 +1,7 @@
 """Tests for helper functions."""
+
 import pytest
+
 from anime_downloader.utils.helper import sanitize_filename
 
 

@@ -24,6 +24,10 @@ DEFAULT_CONFIG = {
     "download_directory": os.path.join(constants.BASE_DOWNLOAD_DIR, "Anime"),
     "update_interval_hours": 5,
     "allow_insecure_ssl": True,  # Forced disabled certificate verification per user request
+    # Cloudflare support
+    "cf_clearance": "",
+    "user_agent": "",
+    "cookie_file": "",
 }
 
 
@@ -39,9 +43,7 @@ def load_config() -> Dict[str, Any]:
     """
     os.makedirs(constants.BASE_DATA_DIR, exist_ok=True)
     if not os.path.exists(CONFIG_FILE_PATH):
-        print(
-            f"Configuration file not found. Creating a default one at: {CONFIG_FILE_PATH}"
-        )
+        print(f"Configuration file not found. Creating a default one at: {CONFIG_FILE_PATH}")
         save_config(DEFAULT_CONFIG)
         return DEFAULT_CONFIG
 

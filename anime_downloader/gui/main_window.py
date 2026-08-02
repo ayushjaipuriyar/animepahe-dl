@@ -5,38 +5,39 @@ This module contains the main application window that provides
 the primary interface for anime downloading.
 """
 
-import sys
 import os
 import subprocess
+import sys
+
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QKeySequence, QPalette, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
     QHBoxLayout,
-    QLineEdit,
-    QPushButton,
-    QListWidget,
-    QTableWidget,
-    QProgressBar,
-    QStatusBar,
-    QLabel,
     QHeaderView,
+    QLabel,
+    QLineEdit,
+    QListWidget,
     QListWidgetItem,
-    QTableWidgetItem,
-    QMessageBox,
-    QSystemTrayIcon,
+    QMainWindow,
     QMenu,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QStatusBar,
+    QSystemTrayIcon,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QKeySequence, QShortcut, QFont, QPalette, QColor, QIcon, QPixmap, QAction
 
-from ..utils import constants, config_manager
-from ..utils.version import get_app_version
 from ..api import AnimePaheAPI, Downloader
-from ..core.signal_handler import setup_signal_handling, register_shutdown_callback
-from .workers import EpisodeWorker, DownloadWorker, UpdateCacheWorker, MultiAnimeDownloadWorker
+from ..core.signal_handler import register_shutdown_callback, setup_signal_handling
+from ..utils import config_manager, constants
+from ..utils.version import get_app_version
 from .dialogs import SettingsDialog
+from .workers import DownloadWorker, EpisodeWorker, MultiAnimeDownloadWorker, UpdateCacheWorker
 
 
 class MainWindow(QMainWindow):
@@ -88,6 +89,7 @@ class MainWindow(QMainWindow):
         # Auto-update cache if empty on launch
         if not self.local_anime_list:
             self.start_cache_update()
+
     def _setup_ui(self):
         """Initializes all UI elements and layouts."""
         # --- Central Widget and Layout ---
@@ -235,9 +237,7 @@ class MainWindow(QMainWindow):
         # Check if system tray is available
         if not QSystemTrayIcon.isSystemTrayAvailable():
             QMessageBox.critical(
-                None,
-                "System Tray",
-                "System tray is not available on this system."
+                None, "System Tray", "System tray is not available on this system."
             )
             return
 
@@ -295,13 +295,14 @@ class MainWindow(QMainWindow):
             "AnimePahe Downloader",
             "Application started and running in system tray",
             QSystemTrayIcon.MessageIcon.Information,
-            3000
+            3000,
         )
 
     def _create_tray_icon(self):
         """Load the SVG icon for the tray if available, else fallback to a colored square."""
         import os
-        icon_path = os.path.join(os.path.dirname(__file__), '../../icon.svg')
+
+        icon_path = os.path.join(os.path.dirname(__file__), "../../icon.svg")
         icon_path = os.path.abspath(icon_path)
         if os.path.exists(icon_path):
             return QIcon(icon_path)
@@ -341,6 +342,7 @@ class MainWindow(QMainWindow):
                 # Store the full data dict in the item
                 item.setData(Qt.ItemDataRole.UserRole, anime_data)
                 self.results_list.addItem(item)
+
     def start_cache_update(self):
         """Start async cache update (UI disabled during run)."""
         if self.worker and self.worker.isRunning():
@@ -371,9 +373,7 @@ class MainWindow(QMainWindow):
                 ),
             )
         else:  # -1
-            self.status_bar.showMessage(
-                "Cache update failed (network or write error).", 7000
-            )
+            self.status_bar.showMessage("Cache update failed (network or write error).", 7000)
             QMessageBox.warning(
                 self,
                 "Cache Update Failed",
@@ -419,9 +419,7 @@ class MainWindow(QMainWindow):
         self.episode_table.setRowCount(len(anime.episodes))
         for i, episode in enumerate(anime.episodes):
             # Column 0: Episode Number
-            self.episode_table.setItem(
-                i, 0, QTableWidgetItem(f"Episode {episode.number}")
-            )
+            self.episode_table.setItem(i, 0, QTableWidgetItem(f"Episode {episode.number}"))
 
             # Column 1: Download Status
             status = "Downloaded" if episode.is_downloaded else "Not Downloaded"
@@ -432,13 +430,9 @@ class MainWindow(QMainWindow):
 
             # Column 2: Download Checkbox
             checkbox = QTableWidgetItem()
-            checkbox.setFlags(
-                Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
-            )
+            checkbox.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
             check_state = (
-                Qt.CheckState.Unchecked
-                if episode.is_downloaded
-                else Qt.CheckState.Checked
+                Qt.CheckState.Unchecked if episode.is_downloaded else Qt.CheckState.Checked
             )
             checkbox.setCheckState(check_state)
             if episode.is_downloaded:
@@ -455,6 +449,7 @@ class MainWindow(QMainWindow):
         self.select_all_button.setEnabled(True)
         self.select_none_button.setEnabled(True)
         self.play_button.setEnabled(True)
+
     def start_download(self):
         """Starts the download process for all episodes checked in the table."""
         selected_items = self.results_list.selectedItems()
@@ -502,7 +497,7 @@ class MainWindow(QMainWindow):
                 "This will download ALL available episodes for each anime.\n"
                 "Do you want to continue?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
+                QMessageBox.StandardButton.No,
             )
 
             if reply == QMessageBox.StandardButton.Yes:
@@ -581,7 +576,7 @@ class MainWindow(QMainWindow):
                 "Installation suggestions:\n"
                 "• Ubuntu/Debian: sudo apt install mpv\n"
                 "• macOS: install mpv via your package manager\n"
-                "• Windows: Download from https://mpv.io/"
+                "• Windows: Download from https://mpv.io/",
             )
             return
 
@@ -590,10 +585,13 @@ class MainWindow(QMainWindow):
         quality = app_config.get("quality", "best")
         audio = app_config.get("audio", "jpn")
 
-        self.status_bar.showMessage(f"Starting playback of {len(selected_episodes)} episode(s) with {media_player}...")
+        self.status_bar.showMessage(
+            f"Starting playback of {len(selected_episodes)} episode(s) with {media_player}..."
+        )
 
         # Start playback worker
         from .workers import PlaybackWorker
+
         self.play_button.setEnabled(False)
         self.worker = PlaybackWorker(
             self.api,
@@ -602,7 +600,7 @@ class MainWindow(QMainWindow):
             selected_episodes,
             quality,
             audio,
-            media_player
+            media_player,
         )
         self.worker.finished.connect(self.on_playback_finished)
         self.worker.error.connect(self.on_playback_error)
@@ -667,11 +665,15 @@ class MainWindow(QMainWindow):
 
         # Ctrl+A to select all episodes
         select_all_shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
-        select_all_shortcut.activated.connect(lambda: self.select_all_episodes() if self.select_all_button.isEnabled() else None)
+        select_all_shortcut.activated.connect(
+            lambda: self.select_all_episodes() if self.select_all_button.isEnabled() else None
+        )
 
         # Ctrl+D to deselect all episodes
         select_none_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
-        select_none_shortcut.activated.connect(lambda: self.select_no_episodes() if self.select_none_button.isEnabled() else None)
+        select_none_shortcut.activated.connect(
+            lambda: self.select_no_episodes() if self.select_none_button.isEnabled() else None
+        )
 
         # Enter to start download
         download_shortcut = QShortcut(QKeySequence("Return"), self)
@@ -684,6 +686,7 @@ class MainWindow(QMainWindow):
         # F5 to refresh cache
         refresh_shortcut = QShortcut(QKeySequence("F5"), self)
         refresh_shortcut.activated.connect(self.start_cache_update)
+
     def _apply_modern_styling(self):
         """Applies modern styling and respects system theme."""
         # Set a modern font
@@ -909,6 +912,7 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if app:
             app.paletteChanged.connect(self._on_palette_changed)
+
     def show_window(self):
         """Show the main window."""
         self.show()
@@ -936,7 +940,7 @@ class MainWindow(QMainWindow):
                 "AnimePahe Downloader",
                 "Background monitoring stopped",
                 QSystemTrayIcon.MessageIcon.Information,
-                2000
+                2000,
             )
             self.status_bar.showMessage("Background monitoring stopped", 3000)
         else:
@@ -949,9 +953,11 @@ class MainWindow(QMainWindow):
                 "AnimePahe Downloader",
                 f"Background monitoring started (checking every {interval_minutes} minutes)",
                 QSystemTrayIcon.MessageIcon.Information,
-                3000
+                3000,
             )
-            self.status_bar.showMessage(f"Background monitoring active (every {interval_minutes} min)", 5000)
+            self.status_bar.showMessage(
+                f"Background monitoring active (every {interval_minutes} min)", 5000
+            )
 
     def background_update_check(self):
         """Perform background update check for new episodes."""
@@ -973,8 +979,7 @@ class MainWindow(QMainWindow):
                     my_anime_list = []
 
                 relevant_episodes = [
-                    ep for ep in new_episodes
-                    if ep["anime_title"] in my_anime_list
+                    ep for ep in new_episodes if ep["anime_title"] in my_anime_list
                 ]
 
                 if relevant_episodes:
@@ -983,7 +988,7 @@ class MainWindow(QMainWindow):
                         title="AnimePahe Downloader",
                         message=f"Found {len(relevant_episodes)} new episodes!",
                         app_name="Animepahe Downloader",
-                        timeout=10
+                        timeout=10,
                     )
 
                     # Show tray message
@@ -991,14 +996,13 @@ class MainWindow(QMainWindow):
                         "New Episodes Available",
                         f"Found {len(relevant_episodes)} new episodes in your watchlist",
                         QSystemTrayIcon.MessageIcon.Information,
-                        5000
+                        5000,
                     )
 
                     # Update status bar if window is visible
                     if self.isVisible():
                         self.status_bar.showMessage(
-                            f"Background check: Found {len(relevant_episodes)} new episodes",
-                            10000
+                            f"Background check: Found {len(relevant_episodes)} new episodes", 10000
                         )
         except Exception as e:
             logger.warning(f"Background update check failed: {e}")
@@ -1020,7 +1024,7 @@ class MainWindow(QMainWindow):
                 "AnimePahe Downloader",
                 "Application minimized to tray. Double-click to restore.",
                 QSystemTrayIcon.MessageIcon.Information,
-                2000
+                2000,
             )
             self.hide()
             event.ignore()
@@ -1039,52 +1043,72 @@ class MainWindow(QMainWindow):
 
         try:
             # Check for GNOME/GTK dark theme
-            if os.environ.get('XDG_CURRENT_DESKTOP', '').lower() in ['gnome', 'unity', 'gtk']:
+            if os.environ.get("XDG_CURRENT_DESKTOP", "").lower() in ["gnome", "unity", "gtk"]:
                 try:
-                    result = subprocess.run(['gsettings', 'get', 'org.gnome.desktop.interface', 'gtk-theme'],
-                                          capture_output=True, text=True, timeout=2)
+                    result = subprocess.run(
+                        ["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"],
+                        capture_output=True,
+                        text=True,
+                        timeout=2,
+                    )
                     if result.returncode == 0:
                         theme_name = result.stdout.strip().strip("'\"").lower()
-                        env_is_dark = 'dark' in theme_name or 'adwaita-dark' in theme_name
+                        env_is_dark = "dark" in theme_name or "adwaita-dark" in theme_name
                 except:
                     pass
 
             # Check for KDE dark theme
-            elif os.environ.get('XDG_CURRENT_DESKTOP', '').lower() in ['kde', 'plasma']:
+            elif os.environ.get("XDG_CURRENT_DESKTOP", "").lower() in ["kde", "plasma"]:
                 try:
-                    kde_config = os.path.expanduser('~/.config/kdeglobals')
+                    kde_config = os.path.expanduser("~/.config/kdeglobals")
                     if os.path.exists(kde_config):
-                        with open(kde_config, 'r') as f:
+                        with open(kde_config, "r") as f:
                             content = f.read()
-                            if 'ColorScheme=Breeze Dark' in content or 'ColorScheme=BreezeDark' in content:
+                            if (
+                                "ColorScheme=Breeze Dark" in content
+                                or "ColorScheme=BreezeDark" in content
+                            ):
                                 env_is_dark = True
                 except:
                     pass
 
             # Check for Hyprland and other Wayland compositors
-            elif os.environ.get('XDG_CURRENT_DESKTOP', '').lower() in ['hyprland', 'sway', 'river', 'wayfire']:
+            elif os.environ.get("XDG_CURRENT_DESKTOP", "").lower() in [
+                "hyprland",
+                "sway",
+                "river",
+                "wayfire",
+            ]:
                 try:
-                    result = subprocess.run(['gsettings', 'get', 'org.gnome.desktop.interface', 'gtk-theme'],
-                                          capture_output=True, text=True, timeout=2)
+                    result = subprocess.run(
+                        ["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"],
+                        capture_output=True,
+                        text=True,
+                        timeout=2,
+                    )
                     if result.returncode == 0:
                         theme_name = result.stdout.strip().strip("'\"").lower()
-                        env_is_dark = 'dark' in theme_name or 'adwaita-dark' in theme_name
+                        env_is_dark = "dark" in theme_name or "adwaita-dark" in theme_name
 
                     if not env_is_dark:
-                        result = subprocess.run(['gsettings', 'get', 'org.gnome.desktop.interface', 'color-scheme'],
-                                              capture_output=True, text=True, timeout=2)
+                        result = subprocess.run(
+                            ["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"],
+                            capture_output=True,
+                            text=True,
+                            timeout=2,
+                        )
                         if result.returncode == 0:
                             color_scheme = result.stdout.strip().strip("'\"").lower()
-                            env_is_dark = 'dark' in color_scheme or 'prefer-dark' in color_scheme
+                            env_is_dark = "dark" in color_scheme or "prefer-dark" in color_scheme
                 except:
                     pass
 
             # Check for general dark theme environment variables
             if not env_is_dark:
-                dark_env_vars = ['GTK_THEME', 'QT_STYLE_OVERRIDE']
+                dark_env_vars = ["GTK_THEME", "QT_STYLE_OVERRIDE"]
                 for var in dark_env_vars:
-                    value = os.environ.get(var, '').lower()
-                    if 'dark' in value:
+                    value = os.environ.get(var, "").lower()
+                    if "dark" in value:
                         env_is_dark = True
                         break
 
@@ -1092,8 +1116,8 @@ class MainWindow(QMainWindow):
             print(f"Warning: Could not detect system theme: {e}")
 
         # Method 3: Force dark mode if user has set environment variable
-        force_dark = os.environ.get('ANIMEPAHE_DL_DARK_MODE', '').lower() in ['1', 'true', 'yes']
-        force_light = os.environ.get('ANIMEPAHE_DL_LIGHT_MODE', '').lower() in ['1', 'true', 'yes']
+        force_dark = os.environ.get("ANIMEPAHE_DL_DARK_MODE", "").lower() in ["1", "true", "yes"]
+        force_light = os.environ.get("ANIMEPAHE_DL_LIGHT_MODE", "").lower() in ["1", "true", "yes"]
 
         if force_dark:
             return True
@@ -1113,7 +1137,10 @@ class MainWindow(QMainWindow):
     def open_settings(self):
         """Opens the settings dialog."""
         dialog = SettingsDialog(self)
-        dialog.exec()
+        if dialog.exec():
+            # Reinitialize the API client so new cf_clearance/user_agent take effect immediately
+            self.api = AnimePaheAPI(verify_ssl=False)
+            self.downloader = Downloader(self.api)
 
 
 def run_gui():
@@ -1122,11 +1149,11 @@ def run_gui():
     signal_handler = setup_signal_handling()
 
     # Set Qt platform plugin for better Wayland support
-    if not os.environ.get('QT_QPA_PLATFORM'):
-        if os.environ.get('WAYLAND_DISPLAY'):
-            os.environ['QT_QPA_PLATFORM'] = 'wayland'
-        elif os.environ.get('DISPLAY'):
-            os.environ['QT_QPA_PLATFORM'] = 'xcb'
+    if not os.environ.get("QT_QPA_PLATFORM"):
+        if os.environ.get("WAYLAND_DISPLAY"):
+            os.environ["QT_QPA_PLATFORM"] = "wayland"
+        elif os.environ.get("DISPLAY"):
+            os.environ["QT_QPA_PLATFORM"] = "xcb"
 
     app = QApplication(sys.argv)
 

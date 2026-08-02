@@ -6,13 +6,21 @@ smart defaults, and better user interaction.
 """
 
 import os
-from typing import List, Dict, Any, Optional
-from ..utils import console, config_manager
-from ..utils.console import print_banner, print_anime_table, confirm_download, prompt_quality, prompt_audio
-from ..api import AnimePaheAPI
-from ..models import Anime, Episode
-from ..core.signal_handler import is_shutdown_requested
+from typing import Any, Dict, List, Optional
+
 import questionary
+
+from ..api import AnimePaheAPI
+from ..core.signal_handler import is_shutdown_requested
+from ..models import Anime, Episode
+from ..utils import config_manager, console
+from ..utils.console import (
+    confirm_download,
+    print_anime_table,
+    print_banner,
+    prompt_audio,
+    prompt_quality,
+)
 
 
 class InteractiveMode:
@@ -65,6 +73,7 @@ class InteractiveMode:
     def _search_and_download(self):
         """Search, play or download anime workflow."""
         from .commands import choose_anime
+
         selected_anime_list = choose_anime(self.api, "", multi=True)
 
         if not selected_anime_list:
@@ -150,14 +159,16 @@ class InteractiveMode:
         quality = questionary.select(
             "Select video quality:",
             choices=["best", "1080p", "720p", "480p", "360p"],
-            default=self.config.get("quality", "best")
+            default=self.config.get("quality", "best"),
         ).ask()
 
         # Audio selection
         audio = questionary.select(
             "Select audio language:",
             choices=["Japanese (jpn)", "English (eng)"],
-            default="Japanese (jpn)" if self.config.get("audio", "jpn") == "jpn" else "English (eng)"
+            default=(
+                "Japanese (jpn)" if self.config.get("audio", "jpn") == "jpn" else "English (eng)"
+            ),
         ).ask()
 
         # Episode selection
@@ -167,8 +178,8 @@ class InteractiveMode:
                 "All episodes",
                 "Latest episodes only",
                 "Specific range",
-                "Missing episodes only"
-            ]
+                "Missing episodes only",
+            ],
         ).ask()
 
         episodes = "all"
@@ -176,13 +187,12 @@ class InteractiveMode:
             count = questionary.text(
                 "How many latest episodes?",
                 default="5",
-                validate=lambda x: x.isdigit() and int(x) > 0
+                validate=lambda x: x.isdigit() and int(x) > 0,
             ).ask()
             episodes = f"latest:{count}"
         elif episode_mode == "Specific range":
             episodes = questionary.text(
-                "Enter episode range (e.g., 1-10, 1,3,5):",
-                validate=lambda x: bool(x.strip())
+                "Enter episode range (e.g., 1-10, 1,3,5):", validate=lambda x: bool(x.strip())
             ).ask()
         elif episode_mode == "Missing episodes only":
             episodes = "missing"
@@ -193,7 +203,7 @@ class InteractiveMode:
             "audio": "jpn" if "Japanese" in audio else "eng",
             "episodes": episodes,
             "concurrent": self.config.get("concurrent_downloads", 2),
-            "threads": self.config.get("threads", 50)
+            "threads": self.config.get("threads", 50),
         }
 
     def _start_downloads(self):
@@ -207,13 +217,12 @@ class InteractiveMode:
             episode_data = self.api.fetch_episode_data(anime["title"], anime["session"])
             if episode_data:
                 # Apply episode filtering based on user selection
-                filtered_episodes = self._filter_episodes(episode_data, self.download_options["episodes"])
+                filtered_episodes = self._filter_episodes(
+                    episode_data, self.download_options["episodes"]
+                )
                 total_episodes += len(filtered_episodes)
 
-                self.download_queue.append({
-                    "anime": anime,
-                    "episodes": filtered_episodes
-                })
+                self.download_queue.append({"anime": anime, "episodes": filtered_episodes})
 
         if not self.download_queue:
             console.print("[red]No episodes to download![/red]")
@@ -228,6 +237,7 @@ class InteractiveMode:
 
         # Show what would be downloaded with resume detection
         from .commands import get_video_path
+
         download_dir = self.config.get("download_directory", "~/Videos")
 
         for item in self.download_queue:
@@ -247,15 +257,19 @@ class InteractiveMode:
                     new_episodes.append(ep_num)
 
             if existing_episodes:
-                console.print(f"  • {anime_name}: {len(new_episodes)} new episodes, {len(existing_episodes)} already downloaded")
+                console.print(
+                    f"  • {anime_name}: {len(new_episodes)} new episodes, {len(existing_episodes)} already downloaded"
+                )
             else:
                 console.print(f"  • {anime_name}: {len(episodes)} episodes")
 
         # Start actual download process using the same logic as CLI
-        from .commands import download_single_episode
-        from ..api import Downloader
         from concurrent.futures import ThreadPoolExecutor, as_completed
+
         from tqdm import tqdm
+
+        from ..api import Downloader
+        from .commands import download_single_episode
 
         downloader = Downloader(self.api)
         download_dir = self.config.get("download_directory", "~/Videos")
@@ -270,23 +284,30 @@ class InteractiveMode:
                 ep_num = int(ep_data["episode"])
                 # Check if already downloaded
                 from .commands import get_video_path
+
                 video_path = get_video_path(anime_data["title"], ep_num, download_dir)
                 if os.path.exists(video_path):
-                    console.print(f"[dim]Skipping {anime_data['title']} Episode {ep_num} (already downloaded)[/dim]")
+                    console.print(
+                        f"[dim]Skipping {anime_data['title']} Episode {ep_num} (already downloaded)[/dim]"
+                    )
                     continue
 
-                all_download_tasks.append({
-                    "name": anime_data["title"],
-                    "slug": anime_data["session"],
-                    "episode_num": ep_num,
-                    "episode_session": ep_data["session"],
-                })
+                all_download_tasks.append(
+                    {
+                        "name": anime_data["title"],
+                        "slug": anime_data["session"],
+                        "episode_num": ep_num,
+                        "episode_session": ep_data["session"],
+                    }
+                )
 
         if not all_download_tasks:
             console.print("[yellow]No new episodes to download![/yellow]")
             return
 
-        console.print(f"[green]Starting download of {len(all_download_tasks)} episode(s)...[/green]")
+        console.print(
+            f"[green]Starting download of {len(all_download_tasks)} episode(s)...[/green]"
+        )
 
         # Create args-like object for download_single_episode
         class DownloadArgs:
@@ -328,14 +349,20 @@ class InteractiveMode:
 
                         try:
                             future.result()  # Wait for completion
-                            console.print(f"[green]✓ Completed: {anime_name} Episode {episode_num}[/green]")
+                            console.print(
+                                f"[green]✓ Completed: {anime_name} Episode {episode_num}[/green]"
+                            )
                         except Exception as e:
-                            console.print(f"[red]✗ Failed: {anime_name} Episode {episode_num} - {str(e)}[/red]")
+                            console.print(
+                                f"[red]✗ Failed: {anime_name} Episode {episode_num} - {str(e)}[/red]"
+                            )
                             failed_downloads.append(f"{anime_name} Episode {episode_num}")
                         pbar.update(1)
 
                     if failed_downloads:
-                        console.print(f"[yellow]Failed downloads: {', '.join(failed_downloads)}[/yellow]")
+                        console.print(
+                            f"[yellow]Failed downloads: {', '.join(failed_downloads)}[/yellow]"
+                        )
                         console.print("[dim]You can retry these episodes later.[/dim]")
 
         except KeyboardInterrupt:
@@ -358,6 +385,7 @@ class InteractiveMode:
         else:
             # Parse specific range/numbers using the existing function
             from .commands import parse_episode_selection
+
             max_episode = len(episode_data)
             selected_episodes = parse_episode_selection(episode_selection, max_episode)
 
@@ -381,8 +409,8 @@ class InteractiveMode:
                 "➕ Add anime to list",
                 "➖ Remove anime from list",
                 "🔄 Update list from downloads",
-                "⬅️  Back to main menu"
-            ]
+                "⬅️  Back to main menu",
+            ],
         ).ask()
 
         if "View" in choice:
@@ -398,8 +426,9 @@ class InteractiveMode:
         """View user's anime list."""
         try:
             from ..utils.constants import MY_ANIME_LIST_FILE
+
             if os.path.exists(MY_ANIME_LIST_FILE):
-                with open(MY_ANIME_LIST_FILE, 'r', encoding='utf-8') as f:
+                with open(MY_ANIME_LIST_FILE, "r", encoding="utf-8") as f:
                     anime_list = [line.strip() for line in f if line.strip()]
 
                 if anime_list:
@@ -424,14 +453,17 @@ class InteractiveMode:
             console.print("[red]No anime found![/red]")
             return
 
-        choices = [questionary.Choice(anime["title"], value=anime["title"]) for anime in results[:10]]
+        choices = [
+            questionary.Choice(anime["title"], value=anime["title"]) for anime in results[:10]
+        ]
         selected = questionary.checkbox("Select anime to add:", choices=choices).ask()
 
         if selected:
             try:
                 from ..utils.constants import MY_ANIME_LIST_FILE
+
                 os.makedirs(os.path.dirname(MY_ANIME_LIST_FILE), exist_ok=True)
-                with open(MY_ANIME_LIST_FILE, 'a', encoding='utf-8') as f:
+                with open(MY_ANIME_LIST_FILE, "a", encoding="utf-8") as f:
                     for anime in selected:
                         f.write(f"{anime}\n")
                 console.print(f"[green]Added {len(selected)} anime to your list![/green]")
@@ -442,11 +474,12 @@ class InteractiveMode:
         """Remove anime from user's list."""
         try:
             from ..utils.constants import MY_ANIME_LIST_FILE
+
             if not os.path.exists(MY_ANIME_LIST_FILE):
                 console.print("[yellow]No anime list found.[/yellow]")
                 return
 
-            with open(MY_ANIME_LIST_FILE, 'r', encoding='utf-8') as f:
+            with open(MY_ANIME_LIST_FILE, "r", encoding="utf-8") as f:
                 anime_list = [line.strip() for line in f if line.strip()]
 
             if not anime_list:
@@ -458,7 +491,7 @@ class InteractiveMode:
 
             if to_remove:
                 updated_list = [anime for anime in anime_list if anime not in to_remove]
-                with open(MY_ANIME_LIST_FILE, 'w', encoding='utf-8') as f:
+                with open(MY_ANIME_LIST_FILE, "w", encoding="utf-8") as f:
                     for anime in updated_list:
                         f.write(f"{anime}\n")
                 console.print(f"[green]Removed {len(to_remove)} anime from your list![/green]")
@@ -467,11 +500,15 @@ class InteractiveMode:
 
     def _update_anime_list(self):
         """Update anime list from downloaded files."""
-        console.print("[dim]Not yet implemented. This feature will scan your download directory and update the list.[/dim]")
+        console.print(
+            "[dim]Not yet implemented. This feature will scan your download directory and update the list.[/dim]"
+        )
 
     def _check_updates(self):
         """Check for new episodes."""
-        console.print("[dim]Not yet implemented. This feature will check for new episodes using your download directory and anime list.[/dim]")
+        console.print(
+            "[dim]Not yet implemented. This feature will check for new episodes using your download directory and anime list.[/dim]"
+        )
 
     def _configure_settings(self):
         """Configure application settings."""
@@ -483,7 +520,7 @@ class InteractiveMode:
             "Default Quality": self.config.get("quality", "best"),
             "Default Audio": self.config.get("audio", "jpn"),
             "Download Threads": self.config.get("threads", 50),
-            "Concurrent Downloads": self.config.get("concurrent_downloads", 2)
+            "Concurrent Downloads": self.config.get("concurrent_downloads", 2),
         }
 
         for key, value in settings_to_show.items():
@@ -496,8 +533,7 @@ class InteractiveMode:
         """Modify application settings."""
         # Download directory
         new_dir = questionary.text(
-            "Download directory:",
-            default=self.config.get("download_directory", "~/Videos")
+            "Download directory:", default=self.config.get("download_directory", "~/Videos")
         ).ask()
         if new_dir:
             self.config["download_directory"] = new_dir
@@ -506,16 +542,14 @@ class InteractiveMode:
         new_quality = questionary.select(
             "Default quality:",
             choices=["best", "1080", "720", "480", "360"],
-            default=self.config.get("quality", "best")
+            default=self.config.get("quality", "best"),
         ).ask()
         if new_quality:
             self.config["quality"] = new_quality
 
         # Default audio
         new_audio = questionary.select(
-            "Default audio:",
-            choices=["jpn", "eng"],
-            default=self.config.get("audio", "jpn")
+            "Default audio:", choices=["jpn", "eng"], default=self.config.get("audio", "jpn")
         ).ask()
         if new_audio:
             self.config["audio"] = new_audio
@@ -526,7 +560,9 @@ class InteractiveMode:
 
     def _view_history(self):
         """View download history."""
-        console.print("[dim]Not yet implemented. Download history feature will show completed downloads here.[/dim]")
+        console.print(
+            "[dim]Not yet implemented. Download history feature will show completed downloads here.[/dim]"
+        )
 
 
 def run_interactive_mode():

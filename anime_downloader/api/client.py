@@ -11,17 +11,36 @@ import subprocess
 import time
 import warnings
 from http.cookies import SimpleCookie
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 from urllib.parse import urljoin, urlparse, urlunparse
 
-import urllib3
 from bs4 import BeautifulSoup
-from urllib3.exceptions import InsecureRequestWarning
+from curl_cffi import requests as cffi_requests
 
 from anime_downloader.utils import config_manager
 
 from ..models import Anime, Episode
 from ..utils import constants, logger
+
+
+class _CffiResponseWrapper:
+    """Thin wrapper around curl_cffi Response to match urllib3 response API.
+
+    Provides ``.status``, ``.headers``, ``.data``, and ``.close()`` so the rest
+    of the codebase that was written against urllib3 keeps working unchanged.
+    """
+
+    def __init__(self, response: cffi_requests.Response) -> None:
+        self._response = response
+        self.status = response.status_code
+        self.headers = response.headers
+
+    @property
+    def data(self) -> bytes:
+        return self._response.content
+
+    def close(self) -> None:
+        self._response.close()
 
 
 class AnimePaheAPI:
@@ -35,13 +54,24 @@ class AnimePaheAPI:
         """Initializes the API with an HTTP client (forced insecure)."""
         self.verify_ssl = False  # Force insecure
         self._insecure_fallback_used = True
+        self._browser_challenge_active = False  # Guard against infinite browser loops
 
-        # Generate session cookie like the bash script
-        self.session_cookie = self._generate_session_cookie()
+        self.config = config_manager.load_config()
 
-        self.http = self._build_pool(False)
-        # Suppress urllib3 insecure request warnings since user explicitly forced insecure mode
-        warnings.simplefilter("ignore", InsecureRequestWarning)
+        cookie_file = self.config.get("cookie_file", "").strip()
+        cf_clearance = self.config.get("cf_clearance", "").strip()
+
+        self.session_cookie = ""
+        if cookie_file and os.path.isfile(cookie_file):
+            self.session_cookie = self._load_cookies_from_file(cookie_file)
+
+        if not self.session_cookie and cf_clearance:
+            self.session_cookie = f"cf_clearance={cf_clearance}"
+
+        if not self.session_cookie:
+            self.session_cookie = self._generate_session_cookie()
+
+        self.http = self._build_session()
 
         # Best-effort startup probe to refresh cookies and follow the current host.
         self.startup_probe()
@@ -56,25 +86,61 @@ class AnimePaheAPI:
         random_str = "".join(random.choice(chars) for _ in range(16))
         return f"__ddg2_={random_str}"
 
-    def _build_pool(self, verify: bool):
-        # Add cookie to headers
+    def _load_cookies_from_file(self, file_path: str) -> str:
+        """Loads cookies from a Netscape format or JSON file and returns a Cookie header string."""
+        cookie_str = ""
+        if file_path.endswith('.json'):
+            import json
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    cookies = json.load(f)
+                    if isinstance(cookies, list):
+                        cookie_pairs = [f"{c['name']}={c['value']}" for c in cookies if 'name' in c and 'value' in c]
+                        cookie_str = "; ".join(cookie_pairs)
+                    elif isinstance(cookies, dict):
+                        cookie_pairs = [f"{k}={v}" for k, v in cookies.items()]
+                        cookie_str = "; ".join(cookie_pairs)
+            except Exception as e:
+                logger.error(f"Error reading JSON cookie file: {e}")
+        else:
+            import http.cookiejar
+            cj = http.cookiejar.MozillaCookieJar(file_path)
+            try:
+                cj.load(ignore_discard=True, ignore_expires=True)
+                cookie_pairs = [f"{cookie.name}={cookie.value}" for cookie in cj]
+                cookie_str = "; ".join(cookie_pairs)
+            except Exception as e:
+                # Fallback: just read raw cookie string if it's not a valid Mozilla format
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read().strip()
+                        if not content.startswith("# Netscape"):
+                            cookie_str = content
+                except Exception as inner_e:
+                    logger.error(f"Error reading cookie file: {e}")
+        return cookie_str
+
+    def _build_session(self) -> cffi_requests.Session:
+        """Build a curl_cffi Session that impersonates Chrome's TLS fingerprint."""
         headers = constants.HTTP_HEADERS.copy()
+
+        user_agent = self.config.get("user_agent", "")
+        if user_agent:
+            headers["User-Agent"] = user_agent
+
         headers["Cookie"] = self.session_cookie
 
-        if verify:
-            return urllib3.PoolManager(10, headers=headers, cert_reqs="CERT_REQUIRED")
-        else:
-            return urllib3.PoolManager(
-                10,
-                headers=headers,
-                cert_reqs="CERT_NONE",
-                assert_hostname=False,
-            )
+        session = cffi_requests.Session(impersonate="chrome")
+        session.headers.update(headers)
+        session.verify = False
+        return session
 
     def _capture_set_cookie_headers(self, response: Any) -> None:
-        """Capture cookies from a response and rebuild the pool if they changed."""
+        """Capture cookies from a response and rebuild the session if they changed."""
         try:
-            set_cookie_hdr = response.headers.get("set-cookie") or response.headers.get("Set-Cookie")
+            set_cookie_hdr = response.headers.get("set-cookie") or response.headers.get(
+                "Set-Cookie"
+            )
             if not set_cookie_hdr:
                 return
 
@@ -87,10 +153,78 @@ class AnimePaheAPI:
             new_cookie = "; ".join(cookie_pairs)
             if new_cookie != self.session_cookie:
                 self.session_cookie = new_cookie
-                self.http = self._build_pool(False)
-                logger.info("Captured cookies from response and rebuilt the request pool")
+                self.http = self._build_session()
+                logger.info("Captured cookies from response and rebuilt the request session")
         except Exception:
             pass
+    def _fetch_clearance_via_browser(self) -> bool:
+        """Launches a visible browser to let the user pass Cloudflare.
+
+        Protected by ``_browser_challenge_active`` to prevent infinite loops.
+        """
+        if self._browser_challenge_active:
+            logger.warning("Browser challenge already in progress, skipping to avoid loop.")
+            return False
+
+        try:
+            from playwright.sync_api import sync_playwright
+        except Exception as e:
+            import sys
+            logger.error(f"Playwright import failed: {e}. Python executable: {sys.executable}. sys.path: {sys.path}")
+            return False
+
+        self._browser_challenge_active = True
+        logger.info("Opening local browser to solve Cloudflare challenge...")
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=False,
+                    args=["--disable-blink-features=AutomationControlled"],
+                    ignore_default_args=["--enable-automation"],
+                )
+                context = browser.new_context()
+                context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                page = context.new_page()
+
+                # Navigate to the base URL
+                page.goto(constants.get_base_url())
+                logger.info("Please solve the Cloudflare challenge in the browser window.")
+                logger.info("Waiting for the cf_clearance cookie to be set (up to 2 minutes)...")
+
+                cf_cookie = None
+                for _ in range(120):  # 2 minutes timeout
+                    cookies = context.cookies()
+                    cf_cookie = next((c for c in cookies if c['name'] == 'cf_clearance'), None)
+                    if cf_cookie:
+                        break
+                    time.sleep(1)
+
+                if cf_cookie:
+                    cf_clearance = cf_cookie['value']
+                    user_agent = page.evaluate("navigator.userAgent")
+
+                    logger.info("Successfully fetched cf_clearance and User-Agent from browser.")
+
+                    # Update config
+                    self.config["cf_clearance"] = cf_clearance
+                    self.config["user_agent"] = user_agent
+
+                    from anime_downloader.utils.config_manager import save_config
+                    save_config(self.config)
+
+                    self.session_cookie = f"cf_clearance={cf_clearance}"
+                    self.http = self._build_session()
+                    browser.close()
+                    return True
+                else:
+                    logger.error("Failed to get cf_clearance cookie within the timeout.")
+                    browser.close()
+                    return False
+        except Exception as e:
+            logger.error(f"Failed to launch browser: {e}")
+            return False
+        finally:
+            self._browser_challenge_active = False
 
     def startup_probe(self, url: Optional[str] = None) -> Optional[str]:
         """Probe the current base host and refresh cookies/host before normal requests.
@@ -105,7 +239,8 @@ class AnimePaheAPI:
         logger.info(f"Running startup probe against: {root_url}")
 
         try:
-            response = self.http.request("GET", root_url, preload_content=False, timeout=60)
+            raw = self.http.get(root_url, timeout=60, allow_redirects=False)
+            response = _CffiResponseWrapper(raw)
         except Exception as e:
             logger.warning(f"Startup probe failed for {root_url}: {e}")
             return None
@@ -114,6 +249,16 @@ class AnimePaheAPI:
             self._capture_set_cookie_headers(response)
 
             status = getattr(response, "status", None)
+            if status == 403:
+                logger.warning("Cloudflare challenge detected (403) during probe.")
+                if self._fetch_clearance_via_browser():
+                    logger.info("Retrying probe after solving challenge...")
+                    try:
+                        response.close()
+                    except Exception:
+                        pass
+                    return self.startup_probe(url)
+
             if status in (301, 302, 303, 307, 308):
                 location = response.headers.get("location") or response.headers.get("Location")
                 if location:
@@ -135,7 +280,9 @@ class AnimePaheAPI:
                         return retry_url
 
             cookie_domain = None
-            set_cookie_hdr = response.headers.get("set-cookie") or response.headers.get("Set-Cookie")
+            set_cookie_hdr = response.headers.get("set-cookie") or response.headers.get(
+                "Set-Cookie"
+            )
             if set_cookie_hdr:
                 match = re.search(r"Domain=([^;\s,]+)", set_cookie_hdr, re.IGNORECASE)
                 if match:
@@ -146,9 +293,7 @@ class AnimePaheAPI:
                 constants.set_base_url(new_base)
                 logger.info(f"Startup probe discovered cookie host: {new_base}")
                 if parsed_probe.path and parsed_probe.path != "/":
-                    retry_url = urlunparse(
-                        parsed_probe._replace(netloc=cookie_domain)
-                    )
+                    retry_url = urlunparse(parsed_probe._replace(netloc=cookie_domain))
                     logger.info(f"Startup probe will retry on: {retry_url}")
                     return retry_url
 
@@ -178,14 +323,25 @@ class AnimePaheAPI:
 
         for attempt in range(constants.MAX_RETRIES):
             try:
-                response = self.http.request("GET", url, preload_content=False, timeout=60)
-                status = getattr(response, "status", None)
+                raw = self.http.get(url, timeout=60, allow_redirects=False)
+                response = _CffiResponseWrapper(raw)
+                status = response.status
 
                 # Successful response
                 if status == 200:
                     if logging.getLogger().isEnabledFor(logging.DEBUG):
                         logger.debug(f"Request successful: {url} (status: {status})")
                     return response
+
+                if status == 403:
+                    logger.warning(f"Cloudflare challenge detected (403) for {url}.")
+                    if self._fetch_clearance_via_browser():
+                        logger.info("Retrying request after solving challenge...")
+                        try:
+                            response.close()
+                        except Exception:
+                            pass
+                        continue # Retry the loop
 
                 # Handle redirects (follow and guard against loops)
                 if status in (301, 302, 303, 307, 308):
@@ -218,7 +374,7 @@ class AnimePaheAPI:
                 # Forbidden -> probe the site's root for a canonical redirect and follow it (no config changes)
                 if status == 403:
                     try:
-                        body = getattr(response, "data", b"")
+                        body = response.data
                         try:
                             snippet = body[:400].decode("utf-8", errors="replace")
                         except Exception:
@@ -243,51 +399,25 @@ class AnimePaheAPI:
 
                 # Other non-200 status codes
                 try:
-                    body = getattr(response, "data", b"")
+                    body = response.data
                     try:
                         snippet = body[:400].decode("utf-8", errors="replace")
                     except Exception:
                         snippet = str(body)[:400]
-                    logger.warning(f"Received status code {status} for {url}. Headers: {dict(response.headers)} Body snippet: {snippet}")
+                    logger.warning(
+                        f"Received status code {status} for {url}. Headers: {dict(response.headers)} Body snippet: {snippet}"
+                    )
                 except Exception:
                     logger.warning(f"Received status code {status} for {url}.")
                 try:
                     response.close()
                 except Exception:
                     pass
-            except urllib3.exceptions.SSLError as e:
-                # Certificate verification failure handling / optional insecure fallback
-                msg = str(e)
-                if "CERTIFICATE_VERIFY_FAILED" in msg and self.verify_ssl:
-                    logger.warning(
-                        "SSL certificate verification failed. You can retry with --insecure (CLI) or set 'allow_insecure_ssl': true in config.json (NOT RECOMMENDED)."
-                    )
-                    # One-time automatic fallback if user already opted in via config
-                    try:
-
-                        cfg = config_manager.load_config()
-                        if cfg.get("allow_insecure_ssl") and not self._insecure_fallback_used:
-                            logger.warning(
-                                "Attempting insecure (certificate verification disabled) retry. Traffic may be intercepted."
-                            )
-                            self.http = self._build_pool(False)
-                            self._insecure_fallback_used = True
-                            # Do not count this attempt; retry immediately
-                            continue
-                    except Exception:
-                        pass
-                logger.warning(f"A network error occurred: {e}")
-            except (
-                urllib3.exceptions.MaxRetryError,
-                urllib3.exceptions.HTTPError,
-                urllib3.exceptions.TimeoutError,
-                urllib3.exceptions.InvalidHeader,
-                urllib3.exceptions.ProxyError,
-            ) as e:
-                logger.warning(f"A network error occurred: {e}")
             except Exception as e:
-                logger.error(f"An unexpected error occurred: {e}")
-                return None  # Don't retry on unexpected errors
+                logger.warning(f"A network error occurred: {e}")
+                if not isinstance(e, (ConnectionError, TimeoutError, OSError)):
+                    logger.error(f"An unexpected error occurred: {e}")
+                    return None  # Don't retry on unexpected errors
 
             if attempt < constants.MAX_RETRIES - 1:
                 sleep_time = constants.BACKOFF_FACTOR ** (attempt + 1)
@@ -379,7 +509,7 @@ class AnimePaheAPI:
 
         data = json.loads(response.data)
         last_page = data.get("last_page", 1)
-        all_episodes = data.get("data", [])
+        all_episodes: List[Dict[str, Any]] = data.get("data", [])
 
         for page_num in range(2, last_page + 1):
             page_url = f"{constants.RELEASE_URL}&id={anime_slug}&sort=episode_asc&page={page_num}"

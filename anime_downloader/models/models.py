@@ -8,15 +8,16 @@ within the application.
 
 import os
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
-from enum import Enum
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from ..core.exceptions import ValidationError
 
 
 class DownloadStatus(Enum):
     """Enumeration for download status."""
+
     NOT_DOWNLOADED = "not_downloaded"
     DOWNLOADING = "downloading"
     DOWNLOADED = "downloaded"
@@ -26,6 +27,7 @@ class DownloadStatus(Enum):
 
 class Quality(Enum):
     """Enumeration for video quality."""
+
     BEST = "best"
     Q1080P = "1080"
     Q720P = "720"
@@ -35,6 +37,7 @@ class Quality(Enum):
 
 class AudioLanguage(Enum):
     """Enumeration for audio language."""
+
     JAPANESE = "jpn"
     ENGLISH = "eng"
 
@@ -42,13 +45,14 @@ class AudioLanguage(Enum):
 @dataclass
 class DownloadProgress:
     """Represents download progress information."""
+
     current: int = 0
     total: int = 0
     percentage: float = 0.0
     speed: float = 0.0  # MB/s
     eta: Optional[int] = None  # seconds
     message: str = ""
-    
+
     def update(self, current: int, total: int, message: str = ""):
         """Update progress information."""
         self.current = current
@@ -71,6 +75,7 @@ class Episode:
         download_date: When the episode was downloaded.
         progress: Current download progress.
     """
+
     number: int
     session: str
     status: DownloadStatus = DownloadStatus.NOT_DOWNLOADED
@@ -78,18 +83,21 @@ class Episode:
     file_size: Optional[int] = None
     download_date: Optional[datetime] = None
     progress: DownloadProgress = field(default_factory=DownloadProgress)
-    
+
     @property
     def is_downloaded(self) -> bool:
         """Check if episode is downloaded."""
-        return (self.status == DownloadStatus.DOWNLOADED and 
-                self.file_path and os.path.exists(self.file_path))
-    
+        return (
+            self.status == DownloadStatus.DOWNLOADED
+            and self.file_path
+            and os.path.exists(self.file_path)
+        )
+
     @property
     def is_downloading(self) -> bool:
         """Check if episode is currently downloading."""
         return self.status == DownloadStatus.DOWNLOADING
-    
+
     def mark_as_downloaded(self, file_path: str):
         """Mark episode as downloaded."""
         self.status = DownloadStatus.DOWNLOADED
@@ -97,11 +105,11 @@ class Episode:
         self.download_date = datetime.now()
         if os.path.exists(file_path):
             self.file_size = os.path.getsize(file_path)
-    
+
     def mark_as_failed(self):
         """Mark episode as failed."""
         self.status = DownloadStatus.FAILED
-    
+
     def reset_download(self):
         """Reset download status."""
         self.status = DownloadStatus.NOT_DOWNLOADED
@@ -123,6 +131,7 @@ class Anime:
         year: Release year.
         genres: List of genres.
     """
+
     name: str
     slug: str
     episodes: List[Episode] = field(default_factory=list)
@@ -136,11 +145,11 @@ class Anime:
         """Initialize anime after creation."""
         self._sort_episodes()
         self._validate()
-    
+
     def _sort_episodes(self):
         """Sort episodes by number."""
         self.episodes.sort(key=lambda e: e.number)
-    
+
     def _validate(self):
         """Validate anime data."""
         if not self.name.strip():
@@ -162,13 +171,13 @@ class Anime:
             if episode.number == episode_number:
                 return episode
         return None
-    
+
     def add_episode(self, episode: Episode):
         """Add an episode to the anime."""
         if self.get_episode(episode.number) is None:
             self.episodes.append(episode)
             self._sort_episodes()
-    
+
     def remove_episode(self, episode_number: int) -> bool:
         """Remove an episode by number."""
         episode = self.get_episode(episode_number)
@@ -176,17 +185,17 @@ class Anime:
             self.episodes.remove(episode)
             return True
         return False
-    
+
     @property
     def downloaded_episodes(self) -> List[Episode]:
         """Get list of downloaded episodes."""
         return [ep for ep in self.episodes if ep.is_downloaded]
-    
+
     @property
     def pending_episodes(self) -> List[Episode]:
         """Get list of episodes not yet downloaded."""
         return [ep for ep in self.episodes if not ep.is_downloaded]
-    
+
     @property
     def download_progress(self) -> float:
         """Get overall download progress as percentage."""
@@ -194,63 +203,64 @@ class Anime:
             return 0.0
         downloaded = len(self.downloaded_episodes)
         return (downloaded / len(self.episodes)) * 100.0
-    
+
     def get_episode_range(self, start: int, end: int) -> List[Episode]:
         """Get episodes in a specific range."""
         return [ep for ep in self.episodes if start <= ep.number <= end]
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert anime to dictionary."""
         return {
-            'name': self.name,
-            'slug': self.slug,
-            'total_episodes': self.total_episodes,
-            'year': self.year,
-            'genres': self.genres,
-            'metadata': self.metadata,
-            'episodes': [
+            "name": self.name,
+            "slug": self.slug,
+            "total_episodes": self.total_episodes,
+            "year": self.year,
+            "genres": self.genres,
+            "metadata": self.metadata,
+            "episodes": [
                 {
-                    'number': ep.number,
-                    'session': ep.session,
-                    'status': ep.status.value,
-                    'file_path': ep.file_path,
-                    'file_size': ep.file_size,
-                    'download_date': ep.download_date.isoformat() if ep.download_date else None
+                    "number": ep.number,
+                    "session": ep.session,
+                    "status": ep.status.value,
+                    "file_path": ep.file_path,
+                    "file_size": ep.file_size,
+                    "download_date": ep.download_date.isoformat() if ep.download_date else None,
                 }
                 for ep in self.episodes
-            ]
+            ],
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Anime':
+    def from_dict(cls, data: Dict[str, Any]) -> "Anime":
         """Create anime from dictionary."""
         anime = cls(
-            name=data['name'],
-            slug=data['slug'],
-            total_episodes=data.get('total_episodes'),
-            year=data.get('year'),
-            genres=data.get('genres', []),
-            metadata=data.get('metadata', {})
+            name=data["name"],
+            slug=data["slug"],
+            total_episodes=data.get("total_episodes"),
+            year=data.get("year"),
+            genres=data.get("genres", []),
+            metadata=data.get("metadata", {}),
         )
-        
-        for ep_data in data.get('episodes', []):
+
+        for ep_data in data.get("episodes", []):
             episode = Episode(
-                number=ep_data['number'],
-                session=ep_data['session'],
-                status=DownloadStatus(ep_data.get('status', 'not_downloaded')),
-                file_path=ep_data.get('file_path'),
-                file_size=ep_data.get('file_size')
+                number=ep_data["number"],
+                session=ep_data["session"],
+                status=DownloadStatus(ep_data.get("status", "not_downloaded")),
+                file_path=ep_data.get("file_path"),
+                file_size=ep_data.get("file_size"),
             )
-            if ep_data.get('download_date'):
-                episode.download_date = datetime.fromisoformat(ep_data['download_date'])
+            if ep_data.get("download_date"):
+                episode.download_date = datetime.fromisoformat(ep_data["download_date"])
             anime.add_episode(episode)
-        
+
         return anime
 
 
 @dataclass
 class DownloadTask:
     """Represents a download task."""
+
     anime: Anime
     episode: Episode
     quality: Quality = Quality.BEST
@@ -258,7 +268,7 @@ class DownloadTask:
     output_path: str = ""
     priority: int = 0
     created_at: datetime = field(default_factory=datetime.now)
-    
+
     def __lt__(self, other):
         """Compare tasks by priority."""
         return self.priority < other.priority
@@ -267,17 +277,15 @@ class DownloadTask:
 @dataclass
 class SearchResult:
     """Represents a search result."""
+
     title: str
     session: str
     year: Optional[int] = None
     status: Optional[str] = None
     episodes: Optional[int] = None
-    
+
     def to_anime(self) -> Anime:
         """Convert search result to Anime object."""
         return Anime(
-            name=self.title,
-            slug=self.session,
-            total_episodes=self.episodes,
-            year=self.year
+            name=self.title, slug=self.session, total_episodes=self.episodes, year=self.year
         )

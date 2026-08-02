@@ -13,19 +13,19 @@ download pipeline after the initial API calls have been made. This includes:
 import os
 import re
 import shutil
-import subprocess
 import shutil as _shutil
+import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Optional, Callable
+from typing import Callable, List, Optional
 from urllib.parse import urlparse
 
 from Crypto.Cipher import AES
 from tqdm import tqdm
 
+from ..core.signal_handler import is_shutdown_requested
 from ..utils import constants, logger
 from .client import AnimePaheAPI
-from ..core.signal_handler import is_shutdown_requested
 
 
 class Downloader:
@@ -46,9 +46,7 @@ class Downloader:
         """
         self.api = api
 
-    def download_segment(
-        self, url: str, key: bytes, iv: bytes, output_path: str
-    ) -> int:
+    def download_segment(self, url: str, key: bytes, iv: bytes, output_path: str) -> int:
         """
         Downloads and decrypts a single HLS video segment.
 
@@ -73,6 +71,7 @@ class Downloader:
 
         # Verbose logging for debugging
         import logging
+
         segment_name = os.path.basename(urlparse(url).path)
         if logging.getLogger().isEnabledFor(logging.DEBUG):
             logger.debug(f"Downloading segment: {segment_name} from {url}")
@@ -89,6 +88,7 @@ class Downloader:
             logger.error(f"Segment URL: {url}")
             if logging.getLogger().isEnabledFor(logging.DEBUG):
                 import traceback
+
                 logger.debug(f"Full traceback for segment {segment_name}: {traceback.format_exc()}")
             return 0
 
@@ -107,9 +107,7 @@ class Downloader:
                 f.write(decrypted_data)
             return bytes_downloaded
         except Exception as e:
-            logger.error(
-                f"Failed to decrypt or save segment {os.path.basename(output_path)}: {e}"
-            )
+            logger.error(f"Failed to decrypt or save segment {os.path.basename(output_path)}: {e}")
             return 0
 
     def fetch_playlist(self, playlist_url: str, output_dir: str) -> Optional[str]:
@@ -214,9 +212,7 @@ class Downloader:
         segments_to_download = [
             s
             for s in segments
-            if not os.path.exists(
-                os.path.join(episode_dir, os.path.basename(urlparse(s).path))
-            )
+            if not os.path.exists(os.path.join(episode_dir, os.path.basename(urlparse(s).path)))
         ]
 
         if not segments_to_download:
@@ -226,9 +222,7 @@ class Downloader:
         total_bytes_downloaded = 0
         start_time = time.time()
 
-        with tqdm(
-            total=len(segments_to_download), unit="seg", desc="Downloading"
-        ) as pbar:
+        with tqdm(total=len(segments_to_download), unit="seg", desc="Downloading") as pbar:
             with ThreadPoolExecutor(max_workers=num_threads) as executor:
                 # Create a future for each segment download with proper mapping
                 future_to_segment = {}
@@ -239,13 +233,11 @@ class Downloader:
                     iv = segment_index.to_bytes(16, byteorder="big")
                     segment_name = os.path.basename(urlparse(seg_url).path)
                     output_path = os.path.join(episode_dir, segment_name)
-                    future = executor.submit(
-                        self.download_segment, seg_url, key, iv, output_path
-                    )
+                    future = executor.submit(self.download_segment, seg_url, key, iv, output_path)
                     future_to_segment[future] = {
-                        'url': seg_url,
-                        'name': segment_name,
-                        'index': original_index
+                        "url": seg_url,
+                        "name": segment_name,
+                        "index": original_index,
                     }
 
                 # Process completed futures
@@ -254,11 +246,11 @@ class Downloader:
                     if is_shutdown_requested():
                         logger.info("Shutdown requested, stopping segment downloads")
                         break
-                    
+
                     segment_info = future_to_segment[future]
-                    segment_name = segment_info['name']
-                    seg_url = segment_info['url']
-                    
+                    segment_name = segment_info["name"]
+                    seg_url = segment_info["url"]
+
                     try:
                         bytes_downloaded = future.result()
                         if bytes_downloaded > 0:
@@ -282,9 +274,11 @@ class Downloader:
                         logger.error(f"Segment URL: {seg_url}")
                         failed_segments.append(segment_name)
                         pbar.update(1)  # Still update progress bar
-                
+
                 if failed_segments:
-                    logger.warning(f"Failed to download {len(failed_segments)} segments: {', '.join(failed_segments[:5])}")
+                    logger.warning(
+                        f"Failed to download {len(failed_segments)} segments: {', '.join(failed_segments[:5])}"
+                    )
                     if len(failed_segments) > 5:
                         logger.warning(f"... and {len(failed_segments) - 5} more segments")
                     logger.info("These segments will be retried on next download attempt.")
@@ -316,9 +310,7 @@ class Downloader:
         file_list_path = os.path.join(segment_dir, "file.list")
 
         playlist_details = self.get_playlist_details(playlist_path)
-        total_duration = (
-            playlist_details.get("duration", 0.0) if playlist_details else 0.0
-        )
+        total_duration = playlist_details.get("duration", 0.0) if playlist_details else 0.0
 
         # Create the file list for ffmpeg
         with open(file_list_path, "w", encoding="utf-8") as f_out:
@@ -360,14 +352,15 @@ class Downloader:
         )
 
         # Parse ffmpeg's stdout to calculate progress
-        for line in iter(process.stdout.readline, ""):
-            if "time=" in line and total_duration > 0 and progress_callback:
-                match = re.search(r"time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})", line)
-                if match:
-                    h, m, s, ms = map(int, match.groups())
-                    current_time = h * 3600 + m * 60 + s + ms / 100
-                    percent = int((current_time / total_duration) * 100)
-                    progress_callback(min(percent, 100))
+        if process.stdout is not None:
+            for line in iter(process.stdout.readline, ""):
+                if "time=" in line and total_duration > 0 and progress_callback:
+                    match = re.search(r"time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})", line)
+                    if match:
+                        h, m, s, ms = map(int, match.groups())
+                        current_time = h * 3600 + m * 60 + s + ms / 100
+                        percent = int((current_time / total_duration) * 100)
+                        progress_callback(min(percent, 100))
 
         process.wait()
 
@@ -378,9 +371,7 @@ class Downloader:
                 progress_callback(100)  # Ensure it finishes at 100%
             return True
         else:
-            logger.error(
-                f"Failed to compile video. FFmpeg exited with code {process.returncode}."
-            )
+            logger.error(f"Failed to compile video. FFmpeg exited with code {process.returncode}.")
             # Optionally, print ffmpeg's output for debugging
             # print(process.stdout.read())
             return False

@@ -1,9 +1,12 @@
 """Pytest configuration and shared fixtures."""
+
 import os
 import tempfile
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock, Mock
+
+import pytest
+
 from anime_downloader.api import AnimePaheAPI, Downloader
 from anime_downloader.models import Anime, Episode
 
