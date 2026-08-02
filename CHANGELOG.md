@@ -2,6 +2,23 @@
 
 <!-- version list -->
 
+## v5.11.0 (2026-08-02)
+
+### Features
+
+- Add curl-cffi dependency with version-specific markers
+  ([#65](https://github.com/ayushjaipuriyar/animepahe-dl/pull/65),
+  [`b6b4e26`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/b6b4e2635484104881b7a67894096a71e1acb33d))
+
+- Add playwright dependency and refactor environment markers in lockfile
+  ([#65](https://github.com/ayushjaipuriyar/animepahe-dl/pull/65),
+  [`b6b4e26`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/b6b4e2635484104881b7a67894096a71e1acb33d))
+
+- **config**: Support custom Cloudflare cookie and user agent
+  ([#65](https://github.com/ayushjaipuriyar/animepahe-dl/pull/65),
+  [`b6b4e26`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/b6b4e2635484104881b7a67894096a71e1acb33d))
+
+
 ## v5.10.1 (2026-05-16)
 
 ### Bug Fixes
