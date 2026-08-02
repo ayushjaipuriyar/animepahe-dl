@@ -44,6 +44,7 @@ dependencies = [
     "urllib3>=2.2.3",
     "bs4>=0.0.2",
     "playwright>=1.48.0",
+    "curl_cffi>=0.7.0",
 ]
 
 [project.optional-dependencies]
