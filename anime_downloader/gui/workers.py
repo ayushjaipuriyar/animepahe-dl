@@ -8,9 +8,7 @@ from freezing and allows for progress reporting.
 
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List
-from urllib.parse import urlparse
 
 from plyer import notification
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -173,24 +171,34 @@ class DownloadWorker(QThread):
                     continue
                 key = key_response.data
 
-                segments = playlist_details["segments"]
-                segments_to_download = [
-                    s
-                    for s in segments
-                    if not os.path.exists(
-                        os.path.join(episode_dir, os.path.basename(urlparse(s).path))
-                    )
-                ]
+                total_segments = len(playlist_details["segments"])
+                self.log.emit(
+                    f"Downloading {total_segments} segments for Ep {episode.number}..."
+                )
+                seg_start = time.time()
 
-                if not segments_to_download:
-                    self.log.emit(f"Segments for Ep {episode.number} already downloaded.")
-                else:
+                def seg_progress(done, total, total_bytes):
+                    elapsed = time.time() - seg_start
+                    speed = (total_bytes / (1024 * 1024)) / elapsed if elapsed > 0 else 0
+                    self.progress_update.emit(
+                        done,
+                        total,
+                        f"({done}/{total}) {total_bytes / (1024*1024):.2f} MB @ {speed:.2f} MB/s",
+                    )
+
+                ok, failed = self.downloader.download_segments(
+                    playlist_details,
+                    key,
+                    episode_dir,
+                    self.app_config["threads"],
+                    seg_progress,
+                )
+                if not ok:
                     self.log.emit(
-                        f"Downloading {len(segments_to_download)} segments for Ep {episode.number}..."
+                        f"Error: {len(failed)} segment(s) for Ep {episode.number} failed after "
+                        f"retries. Not compiling; partial download kept for resume."
                     )
-                    self._run_segment_downloads(
-                        segments_to_download, playlist_details, key, episode_dir
-                    )
+                    continue
 
                 # --- Step 3: Compile Video ---
                 self.log.emit(f"Compiling Episode {episode.number}...")
@@ -203,7 +211,12 @@ class DownloadWorker(QThread):
                 # Use a lambda to add episode context to the progress callback
                 progress_callback = lambda p: self.on_compilation_progress(p, episode.number)
 
-                self.downloader.compile_video(episode_dir, output_path, progress_callback)
+                if not self.downloader.compile_video(episode_dir, output_path, progress_callback):
+                    self.log.emit(
+                        f"Error: Episode {episode.number} did not compile completely "
+                        f"(incomplete or truncated). Not marking as downloaded."
+                    )
+                    continue
                 self.log.emit(f"Finished processing Episode {episode.number}")
 
                 # Send desktop notification
@@ -226,37 +239,6 @@ class DownloadWorker(QThread):
                 continue  # Move to the next episode
 
         self.finished.emit()
-
-    def _run_segment_downloads(self, segments_to_download, playlist_details, key, episode_dir):
-        """Manages the thread pool for downloading segments for a single episode."""
-        total_segments = len(segments_to_download)
-        segments_done = 0
-        total_bytes = 0
-        start_time = time.time()
-
-        with ThreadPoolExecutor(max_workers=self.app_config["threads"]) as executor:
-            futures = []
-            for seg_url in segments_to_download:
-                original_index = playlist_details["segments"].index(seg_url)
-                segment_index = playlist_details["media_sequence"] + original_index
-                iv = segment_index.to_bytes(16, byteorder="big")
-                segment_name = os.path.basename(urlparse(seg_url).path)
-                output_path = os.path.join(episode_dir, segment_name)
-                futures.append(
-                    executor.submit(self.downloader.download_segment, seg_url, key, iv, output_path)
-                )
-
-            for future in as_completed(futures):
-                bytes_downloaded = future.result()
-                if bytes_downloaded > 0:
-                    segments_done += 1
-                    total_bytes += bytes_downloaded
-                    elapsed_time = time.time() - start_time
-                    speed_mbps = (
-                        (total_bytes / (1024 * 1024)) / elapsed_time if elapsed_time > 0 else 0
-                    )
-                    message = f"({segments_done}/{total_segments}) {total_bytes / (1024*1024):.2f} MB @ {speed_mbps:.2f} MB/s"
-                    self.progress_update.emit(segments_done, total_segments, message)
 
     def on_compilation_progress(self, percent: int, episode_number: int):
         """
@@ -398,25 +380,33 @@ class MultiAnimeDownloadWorker(QThread):
                     continue
                 key = key_response.data
 
-                segments = playlist_details["segments"]
-                segments_to_download = [
-                    s
-                    for s in segments
-                    if not os.path.exists(
-                        os.path.join(episode_dir, os.path.basename(urlparse(s).path))
+                total_segments = len(playlist_details["segments"])
+                self.log.emit(f"Downloading {total_segments} segments...")
+                ok, failed = self.downloader.download_segments(
+                    playlist_details,
+                    key,
+                    episode_dir,
+                    self.app_config["threads"],
+                    lambda done, total, _b: self.progress_update.emit(
+                        idx, total_episodes, f"Ep {episode.number}: segment {done}/{total}"
+                    ),
+                )
+                if not ok:
+                    self.log.emit(
+                        f"Error: {len(failed)} segment(s) failed for {anime.name} "
+                        f"Ep {episode.number}; kept for resume, not compiling."
                     )
-                ]
-
-                if segments_to_download:
-                    self.log.emit(f"Downloading {len(segments_to_download)} segments...")
-                    self._run_segment_downloads(
-                        segments_to_download, playlist_details, key, episode_dir
-                    )
+                    continue
 
                 # Compile video
                 self.log.emit(f"Compiling {anime.name} Episode {episode.number}...")
                 output_path = get_video_path(anime.name, episode.number, download_dir)
-                self.downloader.compile_video(episode_dir, output_path, lambda p: None)
+                if not self.downloader.compile_video(episode_dir, output_path, lambda p: None):
+                    self.log.emit(
+                        f"Error: {anime.name} Ep {episode.number} did not compile completely "
+                        f"(incomplete or truncated). Not marking as downloaded."
+                    )
+                    continue
 
                 self.log.emit(f"Completed {anime.name} Episode {episode.number}")
                 self.progress_update.emit(
@@ -433,24 +423,6 @@ class MultiAnimeDownloadWorker(QThread):
 
         self.log.emit(f"Finished downloading {total_episodes} episodes!")
         self.finished.emit()
-
-    def _run_segment_downloads(self, segments_to_download, playlist_details, key, episode_dir):
-        """Downloads segments using a thread pool."""
-        with ThreadPoolExecutor(max_workers=self.app_config["threads"]) as executor:
-            futures = []
-            for seg_url in segments_to_download:
-                original_index = playlist_details["segments"].index(seg_url)
-                segment_index = playlist_details["media_sequence"] + original_index
-                iv = segment_index.to_bytes(16, byteorder="big")
-                segment_name = os.path.basename(urlparse(seg_url).path)
-                output_path = os.path.join(episode_dir, segment_name)
-                futures.append(
-                    executor.submit(self.downloader.download_segment, seg_url, key, iv, output_path)
-                )
-
-            # Wait for all segments to complete
-            for future in as_completed(futures):
-                future.result()
 
 
 class PlaybackWorker(QThread):

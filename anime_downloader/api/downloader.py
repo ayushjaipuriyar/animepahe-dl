@@ -61,13 +61,16 @@ class Downloader:
         Returns:
             The number of bytes downloaded, or 0 on failure.
         """
-        # Skip if the segment is already downloaded
+        # Skip if already downloaded AND non-empty. A 0-byte file is a leftover
+        # from a previously failed run — fall through and re-download it.
         if os.path.exists(output_path):
-            logger.info(f"✓ Resuming: Segment already exists: {os.path.basename(output_path)}")
             try:
-                return os.path.getsize(output_path)
+                existing_size = os.path.getsize(output_path)
             except OSError:
-                return 0
+                existing_size = 0
+            if existing_size > 0:
+                logger.info(f"✓ Resuming: Segment already exists: {os.path.basename(output_path)}")
+                return existing_size
 
         # Verbose logging for debugging
         import logging
@@ -95,9 +98,18 @@ class Downloader:
         encrypted_data = response.data
         bytes_downloaded = len(encrypted_data)
 
-        # Pad data if it's not a multiple of 16 for AES
-        while len(encrypted_data) % 16 != 0:
-            encrypted_data += b"\0"
+        # AES-128-CBC ciphertext is always a whole number of 16-byte blocks. An
+        # empty body or a non-block-aligned body means the transfer was truncated
+        # or failed. The old code padded such bodies with NUL bytes and wrote the
+        # result to disk, silently producing a corrupt segment that later made
+        # ffmpeg stop mid-video. Treat it as a failure and write nothing so this
+        # segment is retried instead of poisoning the merge.
+        if bytes_downloaded == 0 or bytes_downloaded % 16 != 0:
+            logger.error(
+                f"Segment {segment_name} returned {bytes_downloaded} bytes "
+                f"(empty or not 16-byte aligned) — treating as failed, not writing."
+            )
+            return 0
 
         # Decrypt the segment
         try:
@@ -108,6 +120,12 @@ class Downloader:
             return bytes_downloaded
         except Exception as e:
             logger.error(f"Failed to decrypt or save segment {os.path.basename(output_path)}: {e}")
+            # Remove any partial file so a retry re-downloads it cleanly.
+            if os.path.exists(output_path):
+                try:
+                    os.remove(output_path)
+                except OSError:
+                    pass
             return 0
 
     def fetch_playlist(self, playlist_url: str, output_dir: str) -> Optional[str]:
@@ -130,8 +148,12 @@ class Downloader:
 
         response = self.api._request(playlist_url)
         if response:
-            with open(file_path, "wb") as f:
+            # Write atomically: a partially-written playlist from an interrupted
+            # run must never be cached and silently reused as a short segment list.
+            tmp_path = file_path + ".part"
+            with open(tmp_path, "wb") as f:
                 f.write(response.data)
+            os.replace(tmp_path, file_path)
             return file_path
         else:
             logger.error("Failed to download m3u8 playlist.")
@@ -179,12 +201,99 @@ class Downloader:
             "duration": total_duration,
         }
 
+    def download_segments(
+        self,
+        playlist_details: dict,
+        key: bytes,
+        episode_dir: str,
+        num_threads: int,
+        progress_callback: Optional[Callable[[int, int, int], None]] = None,
+        max_rounds: int = 3,
+    ) -> tuple:
+        """
+        Downloads every segment in a playlist in parallel, retrying failures.
+
+        This is the single shared segment-download routine used by both the CLI
+        and the GUI. Previously each caller had its own copy of this loop, and the
+        GUI's copy silently discarded failed segments — the core cause of
+        "successful" downloads that were only a few minutes long.
+
+        Args:
+            playlist_details: Parsed playlist dict from get_playlist_details().
+            key: The 16-byte AES decryption key.
+            episode_dir: Directory to save the .ts segments into.
+            num_threads: Number of parallel download workers.
+            progress_callback: Optional fn(done, total, total_bytes) for progress.
+            max_rounds: How many times to retry the set of still-failing segments.
+
+        Returns:
+            (success, failed_segment_names). success is True only if every segment
+            was downloaded (and no shutdown was requested mid-way).
+        """
+        segments = playlist_details["segments"]
+        media_sequence = playlist_details["media_sequence"]
+        total = len(segments)
+
+        def segment_path(seg_url: str) -> str:
+            return os.path.join(episode_dir, os.path.basename(urlparse(seg_url).path))
+
+        def is_present(seg_url: str) -> bool:
+            p = segment_path(seg_url)
+            return os.path.exists(p) and os.path.getsize(p) > 0
+
+        pending = [s for s in segments if not is_present(s)]
+        done = total - len(pending)
+        total_bytes = 0
+        if progress_callback:
+            progress_callback(done, total, total_bytes)
+
+        for round_num in range(1, max_rounds + 1):
+            if not pending or is_shutdown_requested():
+                break
+
+            failed = []
+            with ThreadPoolExecutor(max_workers=num_threads) as executor:
+                future_to_seg = {}
+                for seg_url in pending:
+                    original_index = segments.index(seg_url)
+                    iv = (media_sequence + original_index).to_bytes(16, byteorder="big")
+                    future = executor.submit(
+                        self.download_segment, seg_url, key, iv, segment_path(seg_url)
+                    )
+                    future_to_seg[future] = seg_url
+
+                for future in as_completed(future_to_seg):
+                    if is_shutdown_requested():
+                        logger.info("Shutdown requested, stopping segment downloads.")
+                        break
+                    seg_url = future_to_seg[future]
+                    try:
+                        bytes_downloaded = future.result()
+                    except Exception as e:
+                        logger.error(f"Exception downloading {segment_path(seg_url)}: {e}")
+                        bytes_downloaded = 0
+
+                    if bytes_downloaded > 0:
+                        done += 1
+                        total_bytes += bytes_downloaded
+                        if progress_callback:
+                            progress_callback(done, total, total_bytes)
+                    else:
+                        failed.append(seg_url)
+
+            pending = failed
+            if pending and round_num < max_rounds and not is_shutdown_requested():
+                logger.warning(
+                    f"{len(pending)} segment(s) failed; retrying (round {round_num + 1}/{max_rounds})."
+                )
+
+        failed_names = [os.path.basename(urlparse(s).path) for s in pending]
+        success = not failed_names and not is_shutdown_requested()
+        return success, failed_names
+
     def download_from_playlist_cli(self, playlist_path: str, num_threads: int) -> bool:
         """
-        Manages the download of all video segments from a playlist for the CLI.
-
-        This method uses a thread pool to download segments in parallel and displays
-        a `tqdm` progress bar to show download speed and progress.
+        Downloads all segments from a playlist for the CLI, with a tqdm progress bar.
 
         Args:
             playlist_path: The local path to the m3u8 playlist.
@@ -206,85 +315,57 @@ class Downloader:
         key = key_response.data
 
         episode_dir = os.path.dirname(playlist_path)
-        segments = playlist_details["segments"]
-
-        # Determine which segments need to be downloaded
-        segments_to_download = [
-            s
-            for s in segments
-            if not os.path.exists(os.path.join(episode_dir, os.path.basename(urlparse(s).path)))
-        ]
-
-        if not segments_to_download:
-            logger.info("All segments already downloaded.")
-            return True
-
-        total_bytes_downloaded = 0
+        total = len(playlist_details["segments"])
         start_time = time.time()
 
-        with tqdm(total=len(segments_to_download), unit="seg", desc="Downloading") as pbar:
-            with ThreadPoolExecutor(max_workers=num_threads) as executor:
-                # Create a future for each segment download with proper mapping
-                future_to_segment = {}
-                for seg_url in segments_to_download:
-                    original_index = segments.index(seg_url)
-                    # The IV for each segment is its sequence number
-                    segment_index = playlist_details["media_sequence"] + original_index
-                    iv = segment_index.to_bytes(16, byteorder="big")
-                    segment_name = os.path.basename(urlparse(seg_url).path)
-                    output_path = os.path.join(episode_dir, segment_name)
-                    future = executor.submit(self.download_segment, seg_url, key, iv, output_path)
-                    future_to_segment[future] = {
-                        "url": seg_url,
-                        "name": segment_name,
-                        "index": original_index,
-                    }
+        with tqdm(total=total, unit="seg", desc="Downloading") as pbar:
 
-                # Process completed futures
-                failed_segments = []
-                for future in as_completed(future_to_segment):
-                    if is_shutdown_requested():
-                        logger.info("Shutdown requested, stopping segment downloads")
-                        break
+            def cb(done: int, _total: int, total_bytes: int) -> None:
+                pbar.n = done
+                elapsed = time.time() - start_time
+                if elapsed > 0:
+                    pbar.set_postfix_str(f"{(total_bytes / (1024 * 1024)) / elapsed:.2f} MB/s")
+                pbar.refresh()
 
-                    segment_info = future_to_segment[future]
-                    segment_name = segment_info["name"]
-                    seg_url = segment_info["url"]
+            success, failed_segments = self.download_segments(
+                playlist_details, key, episode_dir, num_threads, cb
+            )
 
-                    try:
-                        bytes_downloaded = future.result()
-                        if bytes_downloaded > 0:
-                            pbar.update(1)
-                            total_bytes_downloaded += bytes_downloaded
-                            elapsed_time = time.time() - start_time
-                            # Calculate and display download speed
-                            speed_mbps = (
-                                (total_bytes_downloaded / (1024 * 1024)) / elapsed_time
-                                if elapsed_time > 0
-                                else 0
-                            )
-                            pbar.set_postfix_str(f"{speed_mbps:.2f} MB/s")
-                        else:
-                            # Segment failed to download
-                            logger.error(f"Failed to download segment: {segment_name}")
-                            failed_segments.append(segment_name)
-                            pbar.update(1)  # Still update progress bar
-                    except Exception as e:
-                        logger.error(f"Exception downloading segment {segment_name}: {e}")
-                        logger.error(f"Segment URL: {seg_url}")
-                        failed_segments.append(segment_name)
-                        pbar.update(1)  # Still update progress bar
-
-                if failed_segments:
-                    logger.warning(
-                        f"Failed to download {len(failed_segments)} segments: {', '.join(failed_segments[:5])}"
-                    )
-                    if len(failed_segments) > 5:
-                        logger.warning(f"... and {len(failed_segments) - 5} more segments")
-                    logger.info("These segments will be retried on next download attempt.")
-                    return False  # Return False if any segments failed
+        if not success:
+            logger.warning(
+                f"Failed to download {len(failed_segments)} segment(s): "
+                f"{', '.join(failed_segments[:5])}"
+                + (f" ... and {len(failed_segments) - 5} more" if len(failed_segments) > 5 else "")
+            )
+            logger.info("Incomplete segments are kept on disk and will be retried on next run.")
+            return False
 
         return True
+
+    def _probe_duration(self, path: str) -> Optional[float]:
+        """Returns the media duration in seconds via ffprobe, or None if unavailable."""
+        ffprobe_bin = os.environ.get("FFPROBE") or _shutil.which("ffprobe")
+        if not ffprobe_bin or not os.path.exists(path):
+            return None
+        try:
+            result = subprocess.run(
+                [
+                    ffprobe_bin,
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=nw=1:nk=1",
+                    path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            return float(result.stdout.strip())
+        except (ValueError, subprocess.SubprocessError, OSError):
+            return None
 
     def compile_video(
         self,
@@ -295,8 +376,18 @@ class Downloader:
         """
         Compiles downloaded segments into a single mp4 file using ffmpeg.
 
-        It creates a file list for ffmpeg's concat demuxer and then runs the
-        ffmpeg command, capturing its progress to provide feedback.
+        Completeness is verified at both ends so a truncated result can never be
+        reported as success:
+          1. Every segment named in the playlist must exist on disk and be
+             non-empty before the merge starts (a missing/empty segment is exactly
+             what made ffmpeg stop a few minutes in).
+          2. The decrypted MPEG-TS segments are binary-concatenated into one
+             continuous stream and remuxed. This avoids the concat demuxer's
+             per-file timestamp resets, which could silently truncate the output
+             at the first discontinuity while still exiting 0.
+          3. After the merge, the output duration is checked against the playlist's
+             expected duration; a short result is rejected.
+        On any failure the segments are left on disk so the next run can resume.
 
         Args:
             segment_dir: The directory containing the downloaded .ts segments.
@@ -304,22 +395,39 @@ class Downloader:
             progress_callback: An optional function to call with progress (0-100).
 
         Returns:
-            True on successful compilation, False otherwise.
+            True on successful, complete compilation, False otherwise.
         """
         playlist_path = os.path.join(segment_dir, "playlist.m3u8")
-        file_list_path = os.path.join(segment_dir, "file.list")
 
         playlist_details = self.get_playlist_details(playlist_path)
-        total_duration = playlist_details.get("duration", 0.0) if playlist_details else 0.0
+        if not playlist_details or not playlist_details.get("segments"):
+            logger.error("Cannot compile: playlist details or segment list unavailable.")
+            return False
 
-        # Create the file list for ffmpeg
-        with open(file_list_path, "w", encoding="utf-8") as f_out:
-            if playlist_details:
-                for segment_url in playlist_details.get("segments", []):
-                    segment_name = os.path.basename(urlparse(segment_url).path)
-                    f_out.write(f"file '{segment_name}'\n")
+        segments = playlist_details["segments"]
+        total_duration = playlist_details.get("duration", 0.0)
 
-        # Resolve ffmpeg binary path (allow override via FFmpeg environment variable)
+        # 1. Verify every expected segment is present and non-empty.
+        missing = [
+            os.path.basename(urlparse(seg_url).path)
+            for seg_url in segments
+            if not (
+                os.path.exists(os.path.join(segment_dir, os.path.basename(urlparse(seg_url).path)))
+                and os.path.getsize(
+                    os.path.join(segment_dir, os.path.basename(urlparse(seg_url).path))
+                )
+                > 0
+            )
+        ]
+        if missing:
+            logger.error(
+                f"Cannot compile: {len(missing)} of {len(segments)} segments are "
+                f"missing or empty (e.g. {', '.join(missing[:5])}). Keeping the partial "
+                f"download so it can be resumed; not producing a truncated video."
+            )
+            return False
+
+        # Resolve ffmpeg binary path (allow override via FFMPEG environment variable)
         ffmpeg_bin = os.environ.get("FFMPEG") or _shutil.which("ffmpeg")
         if not ffmpeg_bin:
             logger.error(
@@ -327,15 +435,25 @@ class Downloader:
             )
             return False
 
+        # 2. Binary-concatenate the decrypted TS segments into one stream, then remux.
+        combined_ts = os.path.join(segment_dir, "combined.ts")
+        try:
+            with open(combined_ts, "wb") as out_file:
+                for seg_url in segments:
+                    segment_name = os.path.basename(urlparse(seg_url).path)
+                    with open(os.path.join(segment_dir, segment_name), "rb") as seg_file:
+                        shutil.copyfileobj(seg_file, out_file)
+        except OSError as e:
+            logger.error(f"Failed to concatenate segments: {e}")
+            return False
+
         cmd = [
             ffmpeg_bin,
             "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
+            "-fflags",
+            "+genpts",
             "-i",
-            file_list_path,
+            combined_ts,
             "-c",
             "copy",
             output_path,
@@ -364,14 +482,35 @@ class Downloader:
 
         process.wait()
 
-        if process.returncode == 0:
-            # Clean up the temporary segment directory
-            shutil.rmtree(segment_dir)
-            if progress_callback:
-                progress_callback(100)  # Ensure it finishes at 100%
-            return True
-        else:
-            logger.error(f"Failed to compile video. FFmpeg exited with code {process.returncode}.")
-            # Optionally, print ffmpeg's output for debugging
-            # print(process.stdout.read())
+        try:
+            os.remove(combined_ts)
+        except OSError:
+            pass
+
+        if process.returncode != 0:
+            logger.error(
+                f"Failed to compile video. FFmpeg exited with code {process.returncode}. "
+                f"Keeping segments for retry."
+            )
             return False
+
+        # 3. Reject a silently-truncated result (short output, ffmpeg exit 0).
+        if total_duration > 0:
+            actual_duration = self._probe_duration(output_path)
+            if actual_duration is not None and actual_duration < total_duration * 0.98 - 2.0:
+                logger.error(
+                    f"Compiled video is {actual_duration:.0f}s but the playlist expects "
+                    f"{total_duration:.0f}s — the output is truncated. Removing it and keeping "
+                    f"segments; not marking the episode complete."
+                )
+                try:
+                    os.remove(output_path)
+                except OSError:
+                    pass
+                return False
+
+        # Success: clean up the temporary segment directory.
+        shutil.rmtree(segment_dir)
+        if progress_callback:
+            progress_callback(100)  # Ensure it finishes at 100%
+        return True
