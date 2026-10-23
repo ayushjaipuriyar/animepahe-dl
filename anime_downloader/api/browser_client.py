@@ -303,12 +303,11 @@ class BrowserSession:
     def close(self) -> None:
         """Close the browser, saving state first when persistence is enabled."""
         loop = self._loop
-        self._context = None
-        self._browser = None
-        self._playwright = None
-
         if loop is None or not loop.is_running():
             # The browser never started, or its loop already stopped.
+            self._context = None
+            self._browser = None
+            self._playwright = None
             self._loop = None
             return
 
@@ -328,4 +327,7 @@ class BrowserSession:
                 loop.call_soon_threadsafe(loop.stop)
             except RuntimeError as e:
                 logger.debug("Browser loop was already stopped: {}", e)
+            self._context = None
+            self._browser = None
+            self._playwright = None
             self._loop = None
