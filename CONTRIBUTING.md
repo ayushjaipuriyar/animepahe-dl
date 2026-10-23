@@ -216,13 +216,51 @@ animepahe-dl/
 
 ```bash
 # Run CLI
-python -m anime_downloader.main -n "Anime Name"
+uv run python -m anime_downloader.main -n "Anime Name"
 
 # Run GUI
-python -m anime_downloader.main --gui
+uv run python -m anime_downloader.main --gui
 
 # Run with debugging
-python -m pdb -m anime_downloader.main -n "Anime Name"
+uv run python -m pdb -m anime_downloader.main -n "Anime Name"
+```
+
+### The `animepahe-dl` Command
+
+Downloads need a Playwright browser. Install it for whichever environment runs
+the command, because each Playwright version pins its own Chromium build:
+
+```bash
+# Project virtualenv
+uv run playwright install chromium
+
+# uv tool install (the `animepahe-dl` on your PATH)
+~/.local/share/uv/tools/animepahe-dl/bin/playwright install chromium
+```
+
+To make the command track your working tree instead of a released copy:
+
+```bash
+uv tool install --force --editable .
+~/.local/share/uv/tools/animepahe-dl/bin/playwright install chromium
+```
+
+Re-run the second command whenever a dependency change bumps Playwright.
+`playwright install-deps` only supports Debian/Ubuntu; on Fedora install any
+libraries reported by `ldd <chrome-binary> | grep "not found"` with `dnf`.
+
+Verify the browser starts in that environment:
+
+```bash
+~/.local/share/uv/tools/animepahe-dl/bin/python -c "
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    b = p.chromium.launch(headless=False)
+    page = b.new_page()
+    page.goto('https://example.com', wait_until='domcontentloaded')
+    print('ok:', b.version, page.title())
+    b.close()
+"
 ```
 
 ### Debugging

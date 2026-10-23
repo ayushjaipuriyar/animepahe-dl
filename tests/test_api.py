@@ -1,5 +1,6 @@
 """Tests for challenge detection and browser-session export."""
 
+import asyncio
 from types import SimpleNamespace
 
 from anime_downloader.api.browser_client import (
@@ -262,3 +263,43 @@ def test_solve_challenge_reports_a_missing_browser_without_crashing(monkeypatch)
     monkeypatch.setattr(api, "_get_browser_session", lambda: BrokenBrowser())
 
     assert api._solve_challenge("https://animepahe.pw/") is False
+
+
+def test_close_stops_the_browser_before_clearing_handles(monkeypatch):
+    import anime_downloader.api.browser_client as browser_module
+
+    events = []
+
+    class Target:
+        async def close(self):
+            events.append("closed")
+
+    class Playwright:
+        async def stop(self):
+            events.append("stopped")
+
+    class FakeLoop:
+        def is_running(self):
+            return True
+
+        def call_soon_threadsafe(self, fn, *args):
+            fn(*args)
+
+        def stop(self):
+            events.append("loop-stopped")
+
+    def fake_submit(coro, loop):
+        asyncio.run(coro)
+        return SimpleNamespace(result=lambda timeout: None)
+
+    monkeypatch.setattr(browser_module.asyncio, "run_coroutine_threadsafe", fake_submit)
+
+    session = BrowserSession()
+    session._context = Target()
+    session._browser = Target()
+    session._playwright = Playwright()
+    session._loop = FakeLoop()
+
+    session.close()
+
+    assert events == ["closed", "closed", "stopped", "loop-stopped"]
