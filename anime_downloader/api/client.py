@@ -264,11 +264,13 @@ class AnimePaheAPI:
 
         try:
             browser = self._get_browser_session()
+            solved = browser.solve_challenge(url, referer=self._referer_for(url))
         except RuntimeError as e:
+            # A missing or mismatched Playwright browser surfaces here.
             logger.error("Could not start the browser: {}", e)
             return False
 
-        if not browser.solve_challenge(url, referer=self._referer_for(url)):
+        if not solved:
             return False
 
         self._store_browser_session(host, browser.cookies(), browser.user_agent)
@@ -441,7 +443,7 @@ class AnimePaheAPI:
         MAX_REDIRECTS = 5
         host = self._host_for_url(url)
 
-        for attempt in range(2):
+        for _ in range(2):
             response = self._http_request(url)
             if response is None:
                 return None

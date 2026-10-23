@@ -2,7 +2,12 @@
 
 from types import SimpleNamespace
 
-from anime_downloader.api.browser_client import looks_like_block, looks_like_challenge
+from anime_downloader.api.browser_client import (
+    BrowserSession,
+    browser_install_hint,
+    looks_like_block,
+    looks_like_challenge,
+)
 from anime_downloader.api.client import AnimePaheAPI
 
 INTERSTITIAL = b"<html><head><title>Just a moment...</title></head><body>cf_chl_opt</body></html>"
@@ -233,3 +238,27 @@ def test_http_request_sends_the_recorded_referer(monkeypatch):
 
     assert response is not None
     assert captured["headers"] == {"Referer": "https://animepahe.pw/play/1/2"}
+
+
+def test_browser_install_hint_targets_the_running_interpreter():
+    hint = browser_install_hint()
+
+    assert "-m playwright install chromium" in hint
+    assert "python" in hint.lower()
+
+
+def test_close_is_safe_when_the_browser_never_started():
+    BrowserSession().close()
+
+
+def test_solve_challenge_reports_a_missing_browser_without_crashing(monkeypatch):
+    api = make_api()
+    api.config = {"challenge_attempts": 1}
+
+    class BrokenBrowser:
+        def solve_challenge(self, url, referer=None):
+            raise RuntimeError("Executable doesn't exist at chromium-1243")
+
+    monkeypatch.setattr(api, "_get_browser_session", lambda: BrokenBrowser())
+
+    assert api._solve_challenge("https://animepahe.pw/") is False

@@ -72,6 +72,18 @@ def _is_challenge_text(title: str, text: str) -> bool:
     )
 
 
+def browser_install_hint() -> str:
+    """Return the command that installs the browser for *this* environment."""
+    import sys
+
+    return (
+        "\n\nInstall Playwright's browser for the environment running this tool:\n"
+        f"  {sys.executable} -m playwright install chromium\n"
+        "Each Python environment pins its own Chromium revision, so install it "
+        "from the interpreter that runs the downloader."
+    )
+
+
 class BrowserSession:
     """Owns one visible Chromium context on a private asyncio loop thread."""
 
@@ -113,7 +125,9 @@ class BrowserSession:
         if not self._ready.wait(timeout=60):
             raise RuntimeError("Timed out while starting the Playwright browser")
         if self._error is not None:
-            raise RuntimeError(f"Could not start the Playwright browser: {self._error}")
+            raise RuntimeError(
+                f"Could not start the Playwright browser: {self._error}" + browser_install_hint()
+            )
 
     def _run_loop(self) -> None:
         loop = asyncio.new_event_loop()
@@ -124,13 +138,27 @@ class BrowserSession:
         except BaseException as e:  # noqa: BLE001 - reported to the caller
             self._error = e
             self._ready.set()
+            # A partially started Playwright leaves a connection task running;
+            # stop it before closing the loop to avoid a "Task was destroyed"
+            # warning at shutdown.
+            if self._playwright is not None:
+                try:
+                    loop.run_until_complete(self._playwright.stop())
+                except Exception:  # noqa: BLE001
+                    pass
+            self._playwright = None
             loop.close()
+            # Leave no half-built loop behind: close() and a later start()
+            # must both behave as if the browser was never launched.
+            self._loop = None
+            self._thread = None
             return
         self._ready.set()
         try:
             loop.run_forever()
         finally:
             loop.close()
+            self._loop = None
 
     async def _bootstrap(self) -> None:
         from playwright.async_api import async_playwright
@@ -259,31 +287,45 @@ class BrowserSession:
             logger.warning("Could not persist browser state: {}", e)
             return False
 
+    async def _shutdown(self) -> None:
+        for target in (self._context, self._browser):
+            try:
+                if target is not None:
+                    await target.close()
+            except Exception as e:  # noqa: BLE001
+                logger.debug("Error while closing browser target: {}", e)
+        try:
+            if self._playwright is not None:
+                await self._playwright.stop()
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Error while stopping Playwright: {}", e)
+
     def close(self) -> None:
         """Close the browser, saving state first when persistence is enabled."""
-        if self._loop is None:
-            return
-
-        self.save_storage_state()
-
-        async def _shutdown() -> None:
-            for target in (self._context, self._browser):
-                try:
-                    if target is not None:
-                        await target.close()
-                except Exception as e:  # noqa: BLE001
-                    logger.debug("Error while closing browser target: {}", e)
-            try:
-                if self._playwright is not None:
-                    await self._playwright.stop()
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Error while stopping Playwright: {}", e)
-
-        try:
-            asyncio.run_coroutine_threadsafe(_shutdown(), self._loop).result(timeout=30)
-        except Exception:  # noqa: BLE001
-            pass
-        self._loop.call_soon_threadsafe(self._loop.stop)
+        loop = self._loop
         self._context = None
         self._browser = None
         self._playwright = None
+
+        if loop is None or not loop.is_running():
+            # The browser never started, or its loop already stopped.
+            self._loop = None
+            return
+
+        try:
+            self.save_storage_state()
+        except Exception as e:  # noqa: BLE001 - shutdown is best effort
+            logger.debug("Could not save browser state on close: {}", e)
+
+        coro = self._shutdown()
+        try:
+            asyncio.run_coroutine_threadsafe(coro, loop).result(timeout=30)
+        except Exception as e:  # noqa: BLE001
+            coro.close()
+            logger.debug("Error while shutting the browser down: {}", e)
+        finally:
+            try:
+                loop.call_soon_threadsafe(loop.stop)
+            except RuntimeError as e:
+                logger.debug("Browser loop was already stopped: {}", e)
+            self._loop = None
