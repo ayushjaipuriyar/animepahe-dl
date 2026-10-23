@@ -339,9 +339,11 @@ browser. Install Playwright's Chromium:
 playwright install chromium
 ```
 
-It downloads into `~/.cache/ms-playwright`, which every virtual environment and
-install of this tool shares, so run it once for your user rather than once per
-environment. Packaged builds must bundle the same browser.
+It downloads into `~/.cache/ms-playwright`, which every environment shares, so
+run it once per machine. Run it with the Playwright the tool actually uses: each
+Playwright version pins its own Chromium build, so installing from a project
+virtualenv does not satisfy a `uv tool` install of the same package. Packaged
+builds must bundle the same browser.
 
 ### What else changed
 
@@ -494,8 +496,21 @@ animepahe-dl --insecure -n "Anime Name"
 - Delete the cache: `~/.config/animepahe-dl/anime_list.cache`
 - Update cache: Run with `--updates` flag
 
+**`Executable doesn't exist at .../ms-playwright/chromium-XXXX/...`**
+- The browser must match the Playwright version of the environment running the
+  tool. Install it with that environment's interpreter:
+  ```bash
+  # uv tool install
+  ~/.local/share/uv/tools/animepahe-dl/bin/playwright install chromium
+
+  # source checkout / virtualenv
+  uv run playwright install chromium
+  ```
+  The error message prints the exact command (`<python> -m playwright install
+  chromium`) for the environment that failed.
+
 **A browser window keeps opening**
-- Install the browser binary: `playwright install chromium`
+- Install the browser binary as described above
 - The challenge loop means Cloudflare does not accept the browser. Use a
   desktop session (not SSH/headless), and avoid hitting the site repeatedly in
   a short time, which triggers rate limiting.
