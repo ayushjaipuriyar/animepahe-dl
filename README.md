@@ -20,6 +20,7 @@ A feature-rich, high-performance anime downloader for AnimePahe with both CLI an
 - [Installation](#installation)
 - [Usage](#usage)
 - [Configuration](#configuration)
+- [⚠️ Breaking Changes](#️-breaking-changes)
 - [For Developers](#️-for-developers)
 - [Performance Tips](#-performance-tips)
 - [Troubleshooting](#-troubleshooting)
@@ -85,6 +86,11 @@ Before installing, ensure you have the following dependencies on your system:
     *   **Linux**: `sudo apt update && sudo apt install fzf` (or use your distro's package manager).
 *   **Node.js**: Required for an internal dependency.
     *   [Download Node.js](https://nodejs.org/en/download/) or use a package manager.
+*   **Playwright Chromium**: Required to clear Cloudflare challenges. Install it once per machine; it is stored in `~/.cache/ms-playwright` and shared by every environment:
+    ```bash
+    playwright install chromium
+    ```
+*   **Desktop session**: Challenge verification needs a real browser window, so the first download from a protected host requires a graphical session. See [Breaking Changes](#️-breaking-changes) for unattended use.
 *   **Media Player** (for streaming): Required only if you want to use the `--play` feature.
     *   **mpv** (recommended): `sudo apt install mpv` (Linux), install via your package manager on macOS, or download from [mpv.io](https://mpv.io/)
     *   **VLC**: Download from [videolan.org](https://www.videolan.org/)
@@ -269,18 +275,14 @@ sudo journalctl -u animepahe-dl -f  # View logs
 
 ## Configuration
 
-The application's configuration (`config.json`) and data files (`myanimelist.txt`, `animelist.txt`) are stored in your user data directory:
-
-*   **Linux**: `~/.config/anime_downloader/`
-*   **macOS**: `~/Library/Application Support/anime_downloader/`
-*   **Windows**: `C:\Users\<YourUsername>\AppData\Local\anime_downloader\`
+The application's configuration (`config.json`) and data files (`my_anime_list.txt`, `anime_list.cache`, and optionally `browser_state.json`) are stored in `~/.config/animepahe-dl/` on every platform.
 
 You can manually edit `config.json` to change defaults for quality, audio, threads, download directory, and notification settings.
 
 **Configuration Options:**
 ```json
 {
-  "base_url": "https://animepahe.si",
+  "base_url": "https://animepahe.pw",
   "quality": "best",
   "audio": "jpn",
   "threads": 100,
@@ -320,11 +322,39 @@ A Cloudflare **block** page ("Sorry, you have been blocked") cannot be solved
 in a browser; it means the host rejected your IP, so use another mirror or
 network.
 
-The downloader needs a Playwright browser, installed once with:
+The downloader needs a Playwright browser, installed once per machine:
 
 ```bash
-uv run playwright install chromium
+playwright install chromium
 ```
+
+## ⚠️ Breaking Changes
+
+### Install the browser (once per machine)
+
+Cloudflare challenges on AnimePahe and its file hosts are now cleared in a real
+browser. Install Playwright's Chromium:
+
+```bash
+playwright install chromium
+```
+
+It downloads into `~/.cache/ms-playwright`, which every virtual environment and
+install of this tool shares, so run it once for your user rather than once per
+environment. Packaged builds must bundle the same browser.
+
+### What else changed
+
+- **A desktop session is required** to clear a challenge, so unattended
+  `--daemon`, cron, systemd, and plain Docker runs cannot clear one.
+- **The default `base_url` is now `https://animepahe.pw`**. A config still
+  pinning `animepahe.si` returns no results.
+- **New config keys**: `challenge_timeout`, `challenge_attempts`, and
+  `browser_session_persistence`. Existing configs inherit the defaults.
+- **`cf_clearance` and `user_agent` are legacy**; sessions are stored in
+  `browser_state.json` when persistence is `"persistent"`.
+- **Library**: `Downloader` moved to `anime_downloader.api`, and
+  `AnimePaheAPI.close()` releases the browser.
 
 ## 🛠️ For Developers
 
@@ -461,8 +491,28 @@ animepahe-dl --insecure -n "Anime Name"
 - Set `FFMPEG` environment variable to ffmpeg binary path
 
 **Cache issues:**
-- Delete cache directory: `~/.config/anime_downloader/cache/`
+- Delete the cache: `~/.config/animepahe-dl/anime_list.cache`
 - Update cache: Run with `--updates` flag
+
+**A browser window keeps opening**
+- Install the browser binary: `playwright install chromium`
+- The challenge loop means Cloudflare does not accept the browser. Use a
+  desktop session (not SSH/headless), and avoid hitting the site repeatedly in
+  a short time, which triggers rate limiting.
+- Raise `challenge_timeout` if you need longer than the default 180 seconds.
+
+**"Challenge was not completed" but I did solve it**
+- Solve it in the window the downloader opened, not a separate browser window;
+  the session is captured from that browser only.
+
+**Blocked on a file host ("Sorry, you have been blocked")**
+- This is an IP/host block, not a challenge, and a browser cannot clear it.
+  Try another mirror or network.
+
+**404 for the episode list**
+- AnimePahe now serves a different id on the anime page than the slug in the
+  cached anime list. `fetch_episode_data()` resolves this automatically; if you
+  still see a 404, delete `~/.config/animepahe-dl/anime_list.cache` and rerun.
 
 **Permission errors:**
 - Check download directory permissions
@@ -487,6 +537,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Run animepahe-dl in a container:
 
+> [!WARNING]
+> Challenge verification needs a real browser window, so a plain headless
+> container cannot clear a Cloudflare challenge. Mount a persistent
+> `~/.config/animepahe-dl` with `browser_session_persistence` set to
+> `"persistent"` so an already-accepted session can be reused, or run with an
+> X server attached.
+
 ```bash
 # Build the image
 docker build -t animepahe-dl .
@@ -505,20 +562,25 @@ See [docker-compose.yml](docker-compose.yml) for configuration options.
 ### Using as a Python Library
 
 ```python
-from anime_downloader.api import AnimePaheAPI
-from anime_downloader.downloader import Downloader
+from anime_downloader.api import AnimePaheAPI, Downloader
 
 # Initialize
 api = AnimePaheAPI(verify_ssl=False)
 downloader = Downloader(api)
 
-# Search for anime
-results = api.search("Naruto")
-print(results[0]['title'])
+try:
+    # Search for anime
+    results = api.search("Naruto")
+    print(results[0]["title"])
 
-# Download episodes
-# See examples/ directory for complete examples
+    # Download episodes
+    # See examples/ directory for complete examples
+finally:
+    api.close()  # releases the browser; also registered via atexit
 ```
+
+`Downloader` moved to `anime_downloader.api`; `anime_downloader.downloader` no
+longer exists.
 
 ### Automation with Cron
 
