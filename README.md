@@ -288,8 +288,42 @@ You can manually edit `config.json` to change defaults for quality, audio, threa
   "update_interval_hours": 1,
   "allow_insecure_ssl": true,
   "cf_clearance": "",
-  "user_agent": ""
+  "user_agent": "",
+  "cookie_file": "",
+  "browser_session_persistence": "runtime",
+  "challenge_timeout": 180,
+  "challenge_attempts": 3
 }
+```
+
+When a protected AnimePahe or file-host page is encountered, the downloader
+opens a visible Playwright browser window. Complete the challenge there; the
+download continues automatically once the page passes. The browser's cookies
+and User-Agent are then reused for that host, including redirected file-host
+requests.
+
+- `challenge_timeout` is how long to wait for you to finish a challenge.
+- `browser_session_persistence` set to `"persistent"` saves the browser
+  session (cookies and storage) to the application data directory so you do
+  not have to solve the challenge on every run. Leave it as `"runtime"` to
+  keep the session in memory only.
+
+`challenge_attempts` caps how many times a host may prompt you in a single
+run, since Cloudflare can re-challenge an otherwise valid session.
+
+Stream and playlist hosts only answer requests that carry the correct
+`Referer`. The downloader records it automatically (play page -> stream page
+-> playlist), so a bare request to a file host is expected to be blocked even
+though the download itself works.
+
+A Cloudflare **block** page ("Sorry, you have been blocked") cannot be solved
+in a browser; it means the host rejected your IP, so use another mirror or
+network.
+
+The downloader needs a Playwright browser, installed once with:
+
+```bash
+uv run playwright install chromium
 ```
 
 ## 🛠️ For Developers

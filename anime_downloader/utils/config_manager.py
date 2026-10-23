@@ -28,6 +28,9 @@ DEFAULT_CONFIG = {
     "cf_clearance": "",
     "user_agent": "",
     "cookie_file": "",
+    "browser_session_persistence": "runtime",
+    "challenge_timeout": 180,
+    "challenge_attempts": 3,
 }
 
 
