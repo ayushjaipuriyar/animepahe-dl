@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 # Base URLs and API endpoints
-BASE_URL = "https://animepahe.si"
+BASE_URL = "https://animepahe.pw"
 SEARCH_URL = f"{BASE_URL}/api?m=search"
 RELEASE_URL = f"{BASE_URL}/api?m=release"
 PLAY_URL = f"{BASE_URL}/play"

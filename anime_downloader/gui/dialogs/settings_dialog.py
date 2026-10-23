@@ -122,7 +122,7 @@ class SettingsDialog(QDialog):
 
         # --- Base URL Setting ---
         self.base_url_edit = QLineEdit(self.config.get("base_url", constants.BASE_URL))
-        self.base_url_edit.setPlaceholderText("https://animepahe.si")
+        self.base_url_edit.setPlaceholderText("https://animepahe.pw")
         self.base_url_edit.setToolTip("The base URL for the AnimePahe website")
         layout.addRow("🌐 Base URL:", self.base_url_edit)
 
