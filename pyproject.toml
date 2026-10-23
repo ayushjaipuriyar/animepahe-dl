@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "animepahe-dl"
-version = "5.11.0"
+version = "5.12.0"
 authors = [
     { name = "Ayush", email = "ayushjaipuriyar21@gmail.com" }
 ]

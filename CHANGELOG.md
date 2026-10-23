@@ -2,6 +2,45 @@
 
 <!-- version list -->
 
+## v5.12.0 (2026-10-23)
+
+### Bug Fixes
+
+- Default to the live animepahe.pw mirror
+  ([#67](https://github.com/ayushjaipuriyar/animepahe-dl/pull/67),
+  [`0842062`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/08420628dbe821b229e3da1ddd350411b7fc7e04))
+
+- Report a missing Playwright browser instead of crashing
+  ([#67](https://github.com/ayushjaipuriyar/animepahe-dl/pull/67),
+  [`0842062`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/08420628dbe821b229e3da1ddd350411b7fc7e04))
+
+- Restore downloads behind Cloudflare challenges on AnimePahe and file hosts
+  ([#67](https://github.com/ayushjaipuriyar/animepahe-dl/pull/67),
+  [`0842062`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/08420628dbe821b229e3da1ddd350411b7fc7e04))
+
+### Chores
+
+- Drop local assistant instructions from this branch
+  ([#67](https://github.com/ayushjaipuriyar/animepahe-dl/pull/67),
+  [`0842062`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/08420628dbe821b229e3da1ddd350411b7fc7e04))
+
+### Documentation
+
+- Document the Cloudflare browser requirement
+  ([#67](https://github.com/ayushjaipuriyar/animepahe-dl/pull/67),
+  [`0842062`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/08420628dbe821b229e3da1ddd350411b7fc7e04))
+
+- Install the browser for the environment that runs the tool
+  ([#67](https://github.com/ayushjaipuriyar/animepahe-dl/pull/67),
+  [`0842062`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/08420628dbe821b229e3da1ddd350411b7fc7e04))
+
+### Features
+
+- Add browser session handling for Cloudflare challenges
+  ([#67](https://github.com/ayushjaipuriyar/animepahe-dl/pull/67),
+  [`0842062`](https://github.com/ayushjaipuriyar/animepahe-dl/commit/08420628dbe821b229e3da1ddd350411b7fc7e04))
+
+
 ## v5.11.0 (2026-08-02)
 
 ### Features
